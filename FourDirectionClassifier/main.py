@@ -7,7 +7,7 @@ Run this file from VS Code after:
 
 import asyncio
 from DirectionClassifier import train, extract_weights
-from spike import SpikeHub
+from NeuralNetOnSPIKE.Hubs.spike import SpikeHub
 import os
 
 # ══════════════════════════════════════════════════════════════════════════════

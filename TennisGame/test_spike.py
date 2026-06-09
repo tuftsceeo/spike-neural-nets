@@ -1,3 +1,19 @@
+import sys
+import os
+import asyncio
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from NeuralNetOnSPIKE.Hubs.spike import SpikeHub
+def get_test_program():
+    return f"""\
+import hub
+import time
+from hub import light_matrix
+
+hub.light_matrix.write("hi")
+"""
+
+def get_hub_program():
+    return f"""\
 # hub_data_collection.py — runs on the SPIKE Prime hub
 # Records 1.5 seconds of IMU data and sends it over USB serial.
 #
@@ -19,7 +35,7 @@ COUNTDOWN_SEC= 2    # seconds of countdown before recording
 GESTURES = ["Forehand", "Backhand", "Overhead", "None"]
 
 def countdown():
-    """Show a countdown on the display so you know when to move."""
+    #Show a countdown on the display so you know when to move.
     for i in range(COUNTDOWN_SEC, 0, -1):
         hub.light_matrix.write(str(i))
         time.sleep(1)
@@ -29,7 +45,7 @@ def countdown():
     hub.light_matrix.show([0] * 25)
 
 def record(label_idx):
-    """Record NUM_SAMPLES IMU readings and print them as a CSV line."""
+    #Record NUM_SAMPLES IMU readings and print them as a CSV line.
     samples = []
 
     for _ in range(NUM_SAMPLES):
@@ -48,7 +64,7 @@ def record(label_idx):
     hub.light_matrix.show([0] * 25)
 
 def wait_for_button(idx):
-    """Block until the centre hub button is pressed."""
+    #Block until the centre hub button is pressed.
     hub.light_matrix.write(GESTURES[idx][0])
     while not hub.button.pressed(hub.button.LEFT):
         time.sleep_ms(50)
@@ -75,3 +91,11 @@ while True:
 
     # Cycle to the next gesture
     gesture_idx = (gesture_idx + 1) % len(GESTURES)
+"""
+async def main():
+    async with SpikeHub() as hub:
+        await hub.upload_program(get_test_program(), 2, "test_upload.py")
+        await hub.stream_console()
+
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -5,9 +5,9 @@ Listens on USB serial for IMU recordings from the SPIKE hub and saves
 them to a CSV file. Run this BEFORE starting the hub program.
 
 Usage:
-    python collect_data.py                  # auto-detects port
-    python collect_data.py COM3             # specify port explicitly
-    python collect_data.py COM3 my_data.csv # specify port and output file
+    python data_collector.py                  # auto-detects port
+    python data_collector.py COM3             # specify port explicitly
+    python data_collector.py COM3 my_data.csv # specify port and output file
 
 The CSV has a header row followed by one row per recording:
     label, g0_ax, g0_ay, g0_az, g0_gx, g0_gy, g0_gz, g1_ax, ...
@@ -15,17 +15,20 @@ The CSV has a header row followed by one row per recording:
 
 import sys
 import csv
+import asyncio
 import os
 import serial
 import serial.tools.list_ports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from NeuralNetOnSPIKE.Hubs.spike import SpikeHub
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 BAUD_RATE   = 115200
 OUTPUT_FILE = "gesture_data.csv"
-NUM_SAMPLES = 30
+NUM_SAMPLES = 5
 NUM_AXES    = 6   # ax, ay, az, gx, gy, gz
-GESTURES    = ["Rock", "Paper", "Scissors"]
+GESTURES    = ["Forehand", "Backhand", "Overhead", "Nothing"]
 
 # ── CSV header ────────────────────────────────────────────────────────────────
 
@@ -58,34 +61,29 @@ def find_spike_port():
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    # Parse command line args
-    port        = sys.argv[1] if len(sys.argv) > 1 else None
     output_file = sys.argv[2] if len(sys.argv) > 2 else OUTPUT_FILE
-
-    if port is None:
-        port = find_spike_port()
-
-    print(f"Connecting to {port} at {BAUD_RATE} baud...")
-    ser = serial.Serial(port, BAUD_RATE, timeout=2)
-    print(f"Connected. Saving recordings to '{output_file}'")
-    print("─" * 50)
-
     # Open CSV — append mode so you can run this multiple sessions
-    file_exists = os.path.exists(output_file)
-    csv_file    = open(output_file, "a", newline="")
+    # Get the absolute path of the current script's directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Safely join the directory path and the filename together
+    file_path = os.path.join(script_dir, "rps_hub_program.py")
+    file_exists = os.path.exists(file_path)
+    csv_file    = open(file_path, "a", newline="")
     writer      = csv.writer(csv_file)
 
     if not file_exists:
         writer.writerow(make_header())
         csv_file.flush()
-
-    # Wait for hub to signal it's ready
-    print("Waiting for hub to start... (start the program on the hub now)")
-    while True:
-        line = ser.readline().decode("utf-8", errors="replace").strip()
-        if line == "READY":
-            print("Hub is ready!")
-            break
+    
+    async with SpikeHub() as hub:
+        # Wait for hub to signal it's ready
+        print("Waiting for hub to start... (start the program on the hub now)")
+        while True:
+            line = ser.readline().decode("utf-8", errors="replace").strip()
+            if line == "READY":
+                print("Hub is ready!")
+                break
 
     # Count existing recordings so we can show running totals
     counts = {i: 0 for i in range(len(GESTURES))}
@@ -93,8 +91,8 @@ def main():
     current_gesture_idx  = None
     current_gesture_name = None
 
-    print("\nPress the hub's centre button to record each gesture.")
-    print("The hub cycles through Rock → Paper → Scissors automatically.\n")
+    print("\nPress the hub's left button to record each gesture.")
+    print("The hub cycles through Forehand → Backhand → Overhead → Nothing automatically.\n")
 
     while True:
         try:
