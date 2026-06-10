@@ -119,12 +119,23 @@ def train() -> RPSClassifier:
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     print("Training model...")
-    for epoch in range(30):
-        model.train()
+    for epoch in range(30): # 30 is arbitrary, just saying that we want to pass the data through 30 times (ie check itself against data 30 times)
+        model.train() # put in training mode (doesnt do much here really)
         for Xb, yb in train_loader:
-            optimizer.zero_grad()
-            loss = criterion(model(Xb), yb)
-            loss.backward()
+            optimizer.zero_grad() # reset the optimizer (forget all the gradients)
+            loss = criterion(model(Xb), yb) # compute CEL between model output of Xb and actual yb
+            # Back propagation:
+                # the loss is the difference between actual and expected
+                # So, it is a function of all the weights before it, just continuously plugged into the next weight
+                # And, the gradient (dloss/dweight) is the slope the equation of loss to weight
+                # So, gradient says how changing weight affects the loss
+                # Then use that to adjust the weight to lower the loss
+                # To do it for every weight, we go backwards using the chain rule
+                # The gradients are all just derivatives, and each time we plug the output of a weight into a new weight function
+                # So, we can use the chain rule to solve for each gradient
+            loss.backward() # backpropagate on loss tensor
+            
+            # Change the weights as we need to
             optimizer.step()
         if (epoch + 1) % 10 == 0:
             print(f"  Epoch {epoch+1}/30")

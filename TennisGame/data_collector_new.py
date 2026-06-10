@@ -68,7 +68,7 @@ async def grab_data(hub):
     hub.collect = False
 
     # Save whatever we collected
-    if len(sample_buffer) < NUM_TIMESTEPS:
+    if len(sample_buffer) != NUM_TIMESTEPS:
         print(f"  Warning: only got {len(sample_buffer)} samples, expected {NUM_TIMESTEPS}. Discarding.")
         return
 
