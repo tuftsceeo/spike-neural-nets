@@ -7,25 +7,24 @@ import os
 class GestureClassifer(nn.Module):
     def __init__(self):
         super().__init__()
-        # First layer takes in the 6 args for time stamp, spits out 32. 32 is arbitrary number
+        # First layer takes in the 6 args per time stamp, spits out 32. 32 is arbitrary number
         self.conv1 = nn.Conv1d(in_channels=6, out_channels=32, kernel_size=5)
         
         # Next layer breaks down into 64, 
         self.conv2 = nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5)
 
-        # Fully conneted layers to classify the conv layer data
-        self.fc1 = nn.Linear(64*22, 64) # 22 is num timestamps remaining after two conv layers (after putting through first there are 26 5 stamp frames, then doing again brings it down to 22)
-        self.fc2 = nn.Linear(64, 4) # 4 output classes
+        # Fully conneted layer to classify the conv layer data
+        # SIMPLIFIED BY REMOVING FC1
+        self.fc = nn.Linear(64, 4) # 4 output classes
 
     def forward(self, x):
         x = x.permute(0, 2, 1) # x starts as (batch, 30, 6) and is permuted into (batch, 6, 30) (batch, channels, time)
         x = torch.relu(self.conv1(x)) # pass through first conv layer
         x = torch.relu(self.conv2(x)) # pass through second conv layer
         
-        # flatten (combine the 22 time stamps for each of the 64 nodes into one long vector) then pass through the connected layers
-        x = x.flatten(start_dim=1)
-        x = torch.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = x.mean(dim=2) # global average pooling. Average the 22 time stampes into one value to make it 2d instead of 3d
+        # pass through fully connected layer
+        x = self.fc(x)
 
         return x
 
@@ -113,17 +112,15 @@ def train() -> GestureClassifer:
 def extract_weights(model: GestureClassifer) -> dict:
     # to return everything as lists to give to spike
     def to_list(tensor):
-        return tensor.detach.numpy().tolist()
+        return tensor.detach().numpy().tolist()
     
     return {
         "wc1": to_list(model.conv1.weight),
         "bc1": to_list(model.conv1.bias),
         "wc2": to_list(model.conv2.weight),
         "bc2": to_list(model.conv2.bias),
-        "wf1": to_list(model.fc1.weight),
-        "bf1": to_list(model.fc1.bias),
-        "wf2": to_list(model.fc2.weight),
-        "bf2": to_list(model.fc2.bias),
+        "wf": to_list(model.fc.weight),
+        "bf": to_list(model.fc.bias),
     }
 
 

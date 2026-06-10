@@ -10,4 +10,17 @@ Real Stuff:
         contains all data collected on gestures
     test_spike.py:
         trying to test stuff from spike.py. No longer relevant as spike.py is old and now I use Chris's stuff
+    gesture_data:
+        contains the gesture data for the four classes. 50 samples per class, each class has 180 data points (6 imu readings x 30 timestamps)
+    TennisCNNClassifier: 
+        Reads in data from gesture_data and trains model
+    TennisPCTest.py:
+        Tests the CNNClassifier locally on my PC
+    build_hub_cnn.py:
+        Trains a cnn model, extracts the weights, and puts into a hub program
+    big_cnn_hub_program.py:
+        hub program built with extra long floats. did not work on spike (too big)
+    cnn_hub_program.py:
+        hub program built with shorter floats, but still too big for spike
+    
 
