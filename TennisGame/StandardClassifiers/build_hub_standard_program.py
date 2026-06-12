@@ -8,6 +8,7 @@ Run this file from VS Code after:
 import asyncio
 from TennisStandardClassifierV1 import train, extract_weights
 import os
+import torch
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Arrow pixel patterns for the hub's 5×5 LED display.
@@ -133,7 +134,7 @@ while True:
 # Entry point
 # ══════════════════════════════════════════════════════════════════════════════
 
-def round_weights(weights, decimals=6):
+def round_weights(weights, decimals=12):
     if isinstance(weights, list):
         return [round_weights(w, decimals) for w in weights]
     return round(weights, decimals)
@@ -141,9 +142,17 @@ def round_weights(weights, decimals=6):
 async def main():
     # Train model
     model   = train()
+    model.verbose = True
+    x = [659,-780,-47,-143,-81,8,680,-772,-6,-133,-126,39,666,-755,44,-108,-194,8,615,-745,99,-76,-292,30,539,-749,172,6,-476,103,440,-771,181,149,-776,179,361,-833,108,209,-1110,254,300,-913,-5,256,-1397,149,211,-921,-148,418,-1527,230,165,-968,-293,368,-1599,219,141,-994,-410,440,-1602,258,109,-992,-500,361,-1351,246,78,-1002,-521,84,-1263,122,83,-994,-566,18,-1048,77,92,-965,-610,30,-833,72,104,-943,-692,32,-560,61,110,-949,-837,105,-157,117,117,-996,-969,231,513,264,143,-1189,-1150,242,1344,156,95,-1357,-1224,269,2092,-131,-21,-1503,-1197,-163,2722,-830,-112,-1588,-1040,-736,2960,-1441,-105,-1583,-823,-1227,3049,-1926,-35,-1534,-606,-1600,2918,-2214,-4,-1426,-345,-1874,2744,-2364,-32,-1354,-80,-1866,2614,-2254,-169,-1197,373,-1422,2561,-2100,-171,-923,712,-995,1745,-2107,-16,-484,744,-483,853,-1680,169,-165,719,-221,455,-1114]
+    x = torch.tensor(x, dtype=torch.float32)
+    print("Before anything:")
+    print(x)
+    model(x)
+    model.verbose = False
+
     weights = extract_weights(model)
 
-    # Round way down
+    # Round down
     weights = {k: round_weights(v) for k, v in weights.items()}
 
     # Build SPIKE program

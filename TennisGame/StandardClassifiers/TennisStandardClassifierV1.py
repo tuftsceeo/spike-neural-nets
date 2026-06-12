@@ -14,11 +14,25 @@ class TennisClassifer(nn.Module):
         self.fc1 = nn.Linear(180, 16)
         self.fc2 = nn.Linear(16, 16)
         self.fc3 = nn.Linear(16, 4)
+        self.verbose = False
 
     def forward(self, x):
+        if self.verbose:
+            print("Before pass:")
+            print(x)
         x = torch.relu(self.fc1(x))
+        if self.verbose:
+            print("After fc1:")
+            print(x)
         x = torch.relu(self.fc2(x))
-        return self.fc3(x)
+        if self.verbose:
+            print("After fc2:")
+            print(x)
+        x = self.fc3(x)
+        if self.verbose:
+            print("After fc3:")
+            print(x)
+        return x
 
 LABELS = ["Forehand", "Backhand", "Overhead", "None"]
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -85,6 +99,7 @@ def train() -> TennisClassifer:
     print("Training model...")
     for epoch in range(30): # 30 is arbitrary, just saying that we want to pass the data through 30 times (ie check itself against data 30 times)
         model.train() # put in training mode (doesnt do much here really)
+        total_loss = 0
         for Xb, yb in train_loader:
             optimizer.zero_grad() # reset the optimizer (forget all the gradients)
             loss = criterion(model(Xb), yb) # compute CEL between model output of Xb and actual yb
@@ -101,8 +116,9 @@ def train() -> TennisClassifer:
             
             # Change the weights as we need to
             optimizer.step()
+            total_loss += loss.item()
         if (epoch + 1) % 10 == 0:
-            print(f"  Epoch {epoch+1}/30")
+            print(f"Epoch {epoch+1}/30  Loss: {total_loss/len(train_loader):.4f}")
 
     print("Training done.")
     return model
@@ -125,3 +141,12 @@ def extract_weights(model: TennisClassifer) -> dict:
         "w3": to_list(model.fc3.weight),
         "b3": to_list(model.fc3.bias),
     }
+
+def set_weights(model: TennisClassifer, w1, b1, w2, b2, w3, b3):
+    with torch.no_grad():
+        model.fc1.weight.copy_(torch.tensor(w1, dtype=torch.float32))
+        model.fc1.bias.copy_(torch.tensor(b1, dtype=torch.float32))
+        model.fc2.weight.copy_(torch.tensor(w2, dtype=torch.float32))
+        model.fc2.bias.copy_(torch.tensor(b2, dtype=torch.float32))
+        model.fc3.weight.copy_(torch.tensor(w3, dtype=torch.float32))
+        model.fc3.bias.copy_(torch.tensor(b3, dtype=torch.float32))
