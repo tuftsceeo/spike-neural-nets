@@ -29,6 +29,7 @@ Try drawing this in a diagram: represent your input(s) and output(s) with circle
 
 <details>
 <summary>Example Diagram Solution</summary>
+
 ![Wall stopper diagram](activity1_diagram.jpeg)
 </details>
 

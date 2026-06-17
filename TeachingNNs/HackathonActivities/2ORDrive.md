@@ -34,6 +34,7 @@ Think about why the activation function was useful, and why neural networks migh
 
 <details>
 <summary>Example Diagram Solution</summary>
+
 ![OR Diagram](activity2_diagram.jpeg)
 </details>
 
