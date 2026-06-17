@@ -28,9 +28,9 @@ Hopefully, you got a diagram that looks something like this:
 
 ![XOR Diagram](activity3_diagramcopy.jpeg)
 
-This is just like a real neural network: it has a linear input layer, a linear hidden layer, and a linear output layer, and uses activation functions to handle non-linearity. Neural networks use this exact structure, but more complicated ones might have way more neurons (circles), and hidden layers.
+This is just like a real neural network: it has a linear input layer, a linear hidden layer, and a linear output layer, and uses activation functions to handle non-linearity.
 
-Also, pay attention to the flow of information. Every node in an input layer connects to every node in it's output layer, that allows to to represent this in matricies. Try turning this network a series of matrix equations: y = Wx + b. For example, we could translate a diagram like this as so:
+Also, pay attention to the flow of information. Every node in an input layer connects to every node in it's output layer, that allows to to represent this in matricies. Try turning this network a series of matrix equations: y = Wx + b. (If you need a quick intro to matrix multiplication, play around with this calculator: http://matrixmultiplication.xyz/). For example, we could translate a diagram like this as so:
 
 ![Diagram to matrices explainer](diagram_to_matrices.jpeg)
 
