@@ -44,7 +44,8 @@ or, expanding, we get
 ```python
 speed = 50 - 0.5 * reflection
 ```
-Try drawing this in a diagram: represent your input(s) and output(s) with circles, and draw arrow(s) from each input(s) to each output(s), with equation(s) for how to get from one to the other.
+Try drawing this in a diagram like the one below:
+![Diagram Structure](activity1_example_diagram.jpeg)
 
 <details>
 <summary>Example Diagram Solution</summary>

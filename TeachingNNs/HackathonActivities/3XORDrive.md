@@ -7,6 +7,15 @@ Now, do the same as the last activity, but instead of using an OR gate, use an X
 - Both of the joysticks being active does not move the car
 - Both the joysticks being inactive does not move the car
 
+Use these function to determine if your joysticks are active, and use them as the inputs to your network:
+```python
+def is_active_left(controller):
+    return controller.sensor.leftPercent > 5 or controller.sensor.leftPercent < -5
+
+def is_active_right(controller):
+    return controller.sensor.rightPercent > 5 or controller.sensor.rightPercent < -5
+```
+
 Again, try drawing your diagram before diving into the coding, and think about how you can use activation functions. See tips for some hints.
 
 ## Tips
@@ -16,7 +25,8 @@ Again, try drawing your diagram before diving into the coding, and think about h
 
 - You might have trouble modeling this problem with just one equation, so think about how you can break it into smaller problems, each with their own equation
     - Bonus hint: In particular, can you describe XOR in terms of two simpler logic gates? (Try looking up NAND...)
-- How would you draw your diagram now that you broke it down some? Think about the flow of inputs to outputs, and add some extra circles if you need to.
+- How would you draw your diagram now that you broke it down some? Think about the flow of inputs to outputs, and add some extra circles if you need to. Think about this kind of structure as an example:
+![Diagram Structure](activity3_example_diagram.jpeg)
 
 </details>
 
@@ -29,11 +39,11 @@ m = le.DoubleMotor()
 c.connect()
 m.connect()
 
-def abs(x):
-    if x < 0:
-        return -1 * x
-    else:
-        return x
+def is_active_left(controller):
+    return controller.sensor.leftPercent > 5 or controller.sensor.leftPercent < -5
+
+def is_active_right(controller):
+    return controller.sensor.rightPercent > 5 or controller.sensor.rightPercent < -5
 
 def binary_step(x):
     if x <= 0:
@@ -57,15 +67,13 @@ def layer2(x1, x2):
     return x1 + x2 - 1
 
 def predict(x1, x2):
-    x1 = binary_step(abs(x1))
-    x2 = binary_step(abs(x2))
     out1 = binary_step(layer1_1(x1, x2))
     out2 = binary_step(layer1_2(x1, x2))
     out = ReLU(layer2(out1, out2))
     return out
 
 while True:
-    go = predict(c.sensor.leftPercent, c.sensor.rightPercent)
+    go = predict(int(is_active_left(c)), int(is_active_right(c)))
     if go == 1:
         m.motor_run(direction=le.MOTOR_MOVE_DIRECTION_CLOCKWISE, speed=10, motor = le.MOTOR_LEFT)
         m.motor_run(direction=le.MOTOR_MOVE_DIRECTION_COUNTERCLOCKWISE, speed=10, motor = le.MOTOR_RIGHT)
@@ -77,12 +85,15 @@ while True:
 
 ## The Diagram
 <details>
-<summary>Solution and Further Thinking</summary>
+<summary>Solution</summary>
 
 Hopefully, you got a diagram that looks something like this:
 
 ![XOR Diagram](activity3_diagramcopy.jpeg)
 
+</details>
+
+## Turning it into a Matrix
 This is just like a real neural network: it has a linear input layer, a linear hidden layer, and a linear output layer, and uses activation functions to handle non-linearity.
 
 Also, pay attention to the flow of information. Every node in an input layer connects to every node in it's output layer, that allows to to represent this in matricies. Try turning this network a series of matrix equations: y = Wx + b. (If you need a quick intro to matrix multiplication, play around with this calculator: http://matrixmultiplication.xyz/). For example, we could translate a diagram like this as so:
@@ -91,6 +102,4 @@ Also, pay attention to the flow of information. Every node in an input layer con
 
 Being able to write every neurons equation in a layer as just one matrix makes life much simpler for us when programming how to use those equations.
 
-Try writing your XOR diagram as a series of equations with weight matrices and bias vectors. 
-
-</details>
+**Challenge**: Try writing your XOR diagram as a series of equations with weight matrices and bias vectors. 
