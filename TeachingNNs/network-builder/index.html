@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <link rel="stylesheet" href="https://pyscript.net/releases/2026.3.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2026.3.1/core.js"></script>
+    <title>Neural Network Builder</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <py-config src="./pyscript.toml"></py-config>
+</head>
+<body>
+
+    <!-- Loading splash -->
+    <div id="loading-splash" class="loading-splash">
+        <div class="loading-orb"></div>
+        <span class="loading-label">Starting up…</span>
+    </div>
+
+    <div class="page-wrap" id="page-wrap" style="display:none">
+
+        <!-- ── Connection card ───────────────────────────────────── -->
+        <div class="card connect-card">
+            <div class="connect-header">
+                <span class="connect-title">Devices</span>
+            </div>
+            <div class="device-list" id="device-list">
+                <!-- Device chips injected above this button by Python -->
+                <button class="btn-add-device" id="add-device-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2.5">
+                        <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                    Connect device
+                </button>
+            </div>
+        </div>
+
+        <!-- ── Network card ──────────────────────────────────────── -->
+        <div class="card network-card">
+
+            <div class="network-wrap" id="network-wrap">
+                <svg id="arrow-svg" aria-hidden="true"></svg>
+
+                <div class="rows-col rows-col-left" id="rows-col-left">
+                    <div id="rows-container"></div>
+                </div>
+
+                <div class="act-col" id="act-col">
+                    <div class="act-box" id="act-box">
+                        <div class="act-box-label">Activation</div>
+                        <select class="act-select" id="act-select"></select>
+                        <button class="act-help-btn" id="act-help-btn" title="What is an activation function?">?</button>
+                    </div>
+                </div>
+
+                <div class="rows-col rows-col-right" id="rows-col-right">
+                    <div id="rows-out-container"></div>
+                </div>
+            </div>
+
+            <div class="add-row-bar">
+                <button class="btn-add-row" id="add-row-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2.5">
+                        <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                    Add neuron
+                </button>
+            </div>
+
+            <div class="run-bar">
+                <button class="btn-run-circle btn-run-play" id="play-btn" title="Run">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="6,3 20,12 6,21"/>
+                    </svg>
+                </button>
+                <button class="btn-run-circle btn-run-stop" id="stop-btn" title="Stop" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="5" y="5" width="14" height="14" rx="2"/>
+                    </svg>
+                </button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ── Activation help popover ───────────────────────────────── -->
+    <div id="act-help-popover" class="act-help-popover hidden">
+        <div class="act-help-inner">
+            <div class="act-help-header">
+                <span class="act-help-title">Activation functions</span>
+                <button class="btn-icon" id="close-act-help-btn">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <p class="act-help-intro">
+                An activation function is applied to each neuron's output before it becomes
+                the next layer's input. It introduces non-linearity so the network can learn
+                complex patterns.
+            </p>
+            <div class="act-help-list">
+                <div class="act-help-item">
+                    <span class="act-help-name">None</span>
+                    <span class="act-help-desc">No transformation. Output passes through unchanged (identity).</span>
+                </div>
+                <div class="act-help-item">
+                    <span class="act-help-name">ReLU</span>
+                    <span class="act-help-desc">Sets negative values to zero. Fast and widely used in deep learning.</span>
+                </div>
+                <div class="act-help-item">
+                    <span class="act-help-name">Sigmoid</span>
+                    <span class="act-help-desc">Squashes output to (0, 1). Good for probability outputs.</span>
+                </div>
+                <div class="act-help-item">
+                    <span class="act-help-name">Tanh</span>
+                    <span class="act-help-desc">Squashes output to (−1, 1). Zero-centred, often better than Sigmoid.</span>
+                </div>
+                <div class="act-help-item">
+                    <span class="act-help-name">Linear</span>
+                    <span class="act-help-desc">Scales linearly. Equivalent to no activation for a single layer.</span>
+                </div>
+                <div class="act-help-item">
+                    <span class="act-help-name">Step</span>
+                    <span class="act-help-desc">Outputs 1 if input ≥ 0, else 0. Classic binary threshold.</span>
+                </div>
+                <div class="act-help-item">
+                    <span class="act-help-name">Softplus</span>
+                    <span class="act-help-desc">Smooth approximation of ReLU. Always positive with no hard zero.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="py" src="./main.py"></script>
+</body>
+</html>
