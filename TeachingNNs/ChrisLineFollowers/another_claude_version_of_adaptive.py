@@ -8,22 +8,20 @@ the first several seconds before it visibly starts correcting toward
 the line as the weights converge.
 
 Self-recalibration: cal.hi can only ever be pulled DOWN by a slow fixed
-decay (never by a fresh low reading), and once the robot is driving
+decay (never by a fresh low reading), so once the robot is driving
 smoothly it may stop physically visiting the true dark/light extremes
-on its own. So every WOBBLE_PERIOD_TICKS, the main loop briefly
-overrides steering and spins the robot across the line edge, purely to
-refresh cal.lo/cal.hi against real sensor extremes -- independent of
-whatever the network currently thinks is good driving. This is what
-lets it keep discovering "how dark is dark" / "how light is light" on
-its own, including after a real lighting change, without needing a
-human to re-run a calibration sweep by hand.
+on its own -- and if a period reset assumes some fixed "neutral" value
+that doesn't match the current lighting, the same lag reappears from a
+different starting point. So every WOBBLE_PERIOD_TICKS, this version
+resets cal.lo/cal.hi to the CURRENT real sensor reading (not a fixed
+guess), then spins the robot across the line edge to let real min/max
+readings pull lo/hi apart from that grounded starting point in both
+directions -- refreshing calibration against whatever lighting is
+actually present right now, whether or not it changed.
 
-Hardware note: on this chassis the two motors are mounted mirrored,
-so a positive command on both wheels drives them in physically
-opposite directions. RIGHT_SIGN is applied once, inside drive(), so
-every caller (normal driving AND the forced wobble) stays correct
-automatically -- this is a hardware fact, not something the network
-knows about or controls.
+Hardware note: tank drive (movement_move_tank) handles left/right
+convention internally on this chassis, so no manual sign flip is
+needed here (unlike the run_left/run_right version).
 """
 
 import math
@@ -40,22 +38,11 @@ random.seed(5)
 PLOT_EVERY = 5
 HISTORY_LEN = 400   # ticks of history shown on screen at once
 
-# Hardware fact: motors are mirrored on this chassis, so the right
-# wheel needs the opposite sign from the network's raw output to
-# actually turn the same rotational direction as the left wheel.
-RIGHT_SIGN = -1
-
 # Small per-tick delay so a human can actually watch the behavior
 # change, rather than it converging faster than the eye can follow.
 TICK_SLEEP = 0.03
 
 # ---- Forced re-exploration ----
-# Once the network converges, the robot's own steering may stay close
-# to the line and stop physically visiting the true dark/light extremes.
-# cal.hi in particular can only ever be pulled DOWN by slow fixed decay
-# (see Calibrator.update), never by a fresh low reading -- so if nothing
-# forces the robot to keep sweeping past both edges, calibration can go
-# stale exactly when lighting changes and you need it most.
 # Every WOBBLE_PERIOD_TICKS, override the motors for WOBBLE_DURATION_TICKS
 # and spin the robot in place across the line edge, purely to refresh
 # cal.lo / cal.hi against real readings. Training and calibration continue
@@ -68,6 +55,18 @@ WOBBLE_TURN_STRENGTH = 70     # motor magnitude while forced-exploring
 # real exploration refreshes it, don't let lo/hi cross or collapse --
 # clamp the gap open around the current midpoint instead.
 MIN_GAP = 8.0
+
+# Prevents the classic tanh-saturation failure mode: with online training
+# running every tick forever and no regularization, w/b can grow large
+# enough that tanh(w*x+b) saturates near +-1 across the whole realistic
+# input range. Once that happens, the hidden layer's activations become
+# nearly identical for every reading, the (1-h^2) derivative term in
+# backprop collapses toward 0, and the network structurally can't express
+# different behavior for different readings anymore -- no amount of
+# further training (or correct recalibration) fixes it, because the
+# gradient that would un-saturate it is itself the thing that vanished.
+# Clipping keeps w/b in a range where tanh still has real slope.
+WEIGHT_CLIP = 1000
 
 
 # =========================================================
@@ -85,7 +84,7 @@ class Calibrator:
         self.hi = max(self.hi, r)
         self.lo += self.DECAY
         self.hi -= self.DECAY
-        
+
         # Safety: decay (or a run of readings all on one side) could in
         # principle shrink the gap to nothing or cross it. Don't let the
         # self-labels degrade into nonsense -- hold a minimum gap open
@@ -130,6 +129,10 @@ class Net:
         for j in range(self.n):
             self.w[j] += self.lr * d_hid[j] * x
             self.b[j] += self.lr * d_hid[j]
+            # Keep tanh's input weights in a range where it still has
+            # real slope -- see WEIGHT_CLIP comment above.
+            self.w[j] = max(-WEIGHT_CLIP, min(WEIGHT_CLIP, self.w[j]))
+            self.b[j] = max(-WEIGHT_CLIP, min(WEIGHT_CLIP, self.b[j]))
         return 0.5 * (d_out[0] ** 2 + d_out[1] ** 2)
 
 
@@ -138,9 +141,9 @@ class Net:
 # =========================================================
 def self_labeled_batch(cal):
     return [
-        (cal.lo,    0.40, 0),   # darkest it has seen -> brake, turn right
+        (cal.lo,    0.40, 0),      # darkest it has seen -> brake, turn right
         (cal.mid(), 0.90, 0.90),   # midpoint            -> sprint
-        (cal.hi,    0, 0.4),   # lightest it has seen-> brake, turn left
+        (cal.hi,    0, 0.40),      # lightest it has seen -> brake, turn left
     ]
 
 
@@ -149,30 +152,21 @@ def clamp(v, lo=-100, hi=100):
 
 
 def drive(left_cmd, right_cmd):
-    """Single place where commands reach the motors. RIGHT_SIGN (a
-    hardware fact about mounting, not something the network knows or
-    controls) is applied here so every caller -- normal driving or the
-    forced wobble below -- stays consistent automatically."""
+    """Single place where commands reach the motors. Tank drive handles
+    left/right convention internally on this chassis."""
     SCALING = 0.15
-    motor.movement_move_tank(SCALING*clamp(left_cmd), SCALING*clamp(right_cmd))
+    motor.movement_move_tank(SCALING * clamp(left_cmd), SCALING * clamp(right_cmd))
 
 
 # =========================================================
-# Live plot of weights & biases as they train
+# Live plot of weights & biases, calibration bounds, and loss
 # =========================================================
 class LivePlot:
-    """Rolling line plot of every trainable parameter, updated in place.
-
-    Call .push(net) once per tick (cheap: just appends to deques).
-    Call .maybe_draw() periodically (does the actual matplotlib redraw).
-    """
-
     def __init__(self, net, history_len=HISTORY_LEN):
         self.history_len = history_len
         self.t = 0
         self.ticks = deque(maxlen=history_len)
 
-        # One deque per scalar parameter, named for the legend.
         self.series = {}
         for j in range(net.n):
             self.series["w[{}]".format(j)] = deque(maxlen=history_len)
@@ -187,10 +181,20 @@ class LivePlot:
         self.mid_hist = deque(maxlen=history_len)
         self.hi_hist = deque(maxlen=history_len)
 
+        # Hidden activations h[j] evaluated AT cal.lo / cal.mid() / cal.hi
+        # each tick -- this is the direct diagnostic for tanh saturation.
+        # If these collapse to nearly the same value across all three
+        # points (and across ticks), the hidden layer can't tell the
+        # three calibration points apart anymore, and no choice of
+        # output weights can produce different steering for them.
+        self.h_lo_hist = [deque(maxlen=history_len) for _ in range(net.n)]
+        self.h_mid_hist = [deque(maxlen=history_len) for _ in range(net.n)]
+        self.h_hi_hist = [deque(maxlen=history_len) for _ in range(net.n)]
+
         plt.ion()
-        self.fig, (self.ax_params, self.ax_cal, self.ax_loss) = plt.subplots(
-            3, 1, figsize=(9, 8), sharex=True,
-            gridspec_kw={"height_ratios": [3, 2, 1]})
+        self.fig, (self.ax_params, self.ax_hidden, self.ax_cal, self.ax_loss) = plt.subplots(
+            4, 1, figsize=(9, 10), sharex=True,
+            gridspec_kw={"height_ratios": [3, 2, 2, 1]})
 
         self.lines = {}
         for name in self.series:
@@ -201,13 +205,34 @@ class LivePlot:
         self.ax_params.legend(loc="upper left", ncol=4, fontsize=7)
         self.ax_params.axhline(0, color="gray", linewidth=0.5)
 
+        # One line per (hidden unit, calibration point) -- color = point,
+        # linestyle = hidden unit index, so saturation-into-sameness is
+        # visible both within a point (lines bunching) and across points
+        # (all three colors bunching together).
+        point_colors = {"lo": "tab:blue", "mid": "gray", "hi": "tab:orange"}
+        linestyles = ["-", "--", ":", "-."]
+        self.h_lines = {"lo": [], "mid": [], "hi": []}
+        for point, hist_list in (("lo", self.h_lo_hist), ("mid", self.h_mid_hist), ("hi", self.h_hi_hist)):
+            for j in range(net.n):
+                (line,) = self.ax_hidden.plot(
+                    [], [], label="h[{}] @ {}".format(j, point),
+                    color=point_colors[point],
+                    linestyle=linestyles[j % len(linestyles)],
+                    linewidth=1.2)
+                self.h_lines[point].append(line)
+        self.ax_hidden.set_ylabel("h (tanh output)")
+        self.ax_hidden.set_ylim(-1.15, 1.15)
+        self.ax_hidden.axhline(1, color="gray", linewidth=0.5, linestyle=":")
+        self.ax_hidden.axhline(-1, color="gray", linewidth=0.5, linestyle=":")
+        self.ax_hidden.set_title("Hidden activations at cal.lo / mid / hi (live) -- watch for collapse toward +-1")
+        self.ax_hidden.legend(loc="upper left", ncol=3, fontsize=6)
+
         (self.lo_line,) = self.ax_cal.plot([], [], label="cal.lo", color="tab:blue", linewidth=1.4)
         (self.mid_line,) = self.ax_cal.plot([], [], label="cal.mid()", color="gray", linewidth=1.0, linestyle="--")
         (self.hi_line,) = self.ax_cal.plot([], [], label="cal.hi", color="tab:orange", linewidth=1.4)
         self.ax_cal.set_ylabel("sensor units")
         self.ax_cal.set_title("Calibration bounds (live)")
         self.ax_cal.legend(loc="upper left", fontsize=8)
-
 
         (self.loss_line,) = self.ax_loss.plot([], [], color="black", linewidth=1.2)
         self.ax_loss.set_ylabel("loss")
@@ -232,6 +257,17 @@ class LivePlot:
         self.mid_hist.append(cal.mid())
         self.hi_hist.append(cal.hi)
 
+        # Evaluate the hidden layer's response, right now, at each of the
+        # three calibration points -- using forward() only (no training),
+        # so this is a pure read of "what does the network currently see."
+        _, h_lo, _ = net.forward(cal.lo)
+        _, h_mid, _ = net.forward(cal.mid())
+        _, h_hi, _ = net.forward(cal.hi)
+        for j in range(net.n):
+            self.h_lo_hist[j].append(h_lo[j])
+            self.h_mid_hist[j].append(h_mid[j])
+            self.h_hi_hist[j].append(h_hi[j])
+
     def maybe_draw(self, force=False):
         if not force and self.t % PLOT_EVERY != 0:
             return
@@ -246,6 +282,15 @@ class LivePlot:
         self.hi_line.set_data(xs, list(self.hi_hist))
         self.ax_cal.relim()
         self.ax_cal.autoscale_view()
+
+        for j, line in enumerate(self.h_lines["lo"]):
+            line.set_data(xs, list(self.h_lo_hist[j]))
+        for j, line in enumerate(self.h_lines["mid"]):
+            line.set_data(xs, list(self.h_mid_hist[j]))
+        for j, line in enumerate(self.h_lines["hi"]):
+            line.set_data(xs, list(self.h_hi_hist[j]))
+        # y-axis is fixed to [-1.15, 1.15] at init since tanh output is
+        # bounded -- no need to autoscale this one.
 
         self.loss_line.set_data(xs, list(self.loss_hist))
         self.ax_loss.relim()
@@ -267,9 +312,6 @@ motor.connect(card_serial="1003")
 net = Net()
 cal = Calibrator()
 
-# ---- Startup sweep: seed calibration from REAL readings ----
-# Physically rock/rotate the sensor across the line's edge while this runs,
-# so cal.lo / cal.hi capture the true dark and light extremes.
 print("Sweeping... move the sensor across the line edge now.")
 SWEEP_TICKS = 60
 time.sleep(1)
@@ -280,18 +322,11 @@ for i in range(SWEEP_TICKS):
 print("  calibrated:  lo={:.1f}  mid={:.1f}  hi={:.1f}".format(
     cal.lo, cal.mid(), cal.hi))
 
-# ---- No pretraining burst here on purpose ----
-# net.w / net.b / net.v / net.c are still the raw random values from
-# Net.__init__. The very first backprop step happens inside the loop
-# below, live, with the robot already moving.
 print("Starting on RANDOM weights -- expect it to misbehave at first.")
 plot = LivePlot(net)
 
 # =========================================================
-# Main loop: calibrate + train + drive, every tick, forever.
-# Every WOBBLE_PERIOD_TICKS, briefly override steering to spin across
-# the line edge so cal.lo/cal.hi get refreshed against real extremes,
-# even once the network is converged and driving smoothly.
+# Main loop
 # =========================================================
 tick = 0
 while True:
@@ -304,15 +339,16 @@ while True:
         loss += net.train_step(*sample)
     plot.push(net, loss, cal)
     plot.maybe_draw()
+
     phase_in_period = tick % WOBBLE_PERIOD_TICKS
     if phase_in_period == 0:
-        cal.lo = 50
-        cal.hi = 50
+        # Reset to the CURRENT real reading, not a fixed guess. Whatever
+        # the lighting is right now, this is a grounded starting point --
+        # the wobble below then pulls lo/hi apart from here based on
+        # what's actually there, instead of assuming "50" is meaningful.
+        cal.lo = r
+        cal.hi = r
     if phase_in_period < WOBBLE_DURATION_TICKS:
-        # Forced re-exploration: spin in place, alternating direction,
-        # to sweep the sensor back across the line edge and re-confirm
-        # the true dark/light extremes -- independent of what the
-        # network currently thinks is a good idea.
         half = WOBBLE_DURATION_TICKS // 2
         turn = WOBBLE_TURN_STRENGTH if phase_in_period < half else -WOBBLE_TURN_STRENGTH
         drive(turn, -turn)
