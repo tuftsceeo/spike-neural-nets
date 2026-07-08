@@ -66,7 +66,7 @@ MIN_GAP = 8.0
 # further training (or correct recalibration) fixes it, because the
 # gradient that would un-saturate it is itself the thing that vanished.
 # Clipping keeps w/b in a range where tanh still has real slope.
-WEIGHT_CLIP = 1000
+WEIGHT_CLIP = 6.0
 
 
 # =========================================================
@@ -181,20 +181,10 @@ class LivePlot:
         self.mid_hist = deque(maxlen=history_len)
         self.hi_hist = deque(maxlen=history_len)
 
-        # Hidden activations h[j] evaluated AT cal.lo / cal.mid() / cal.hi
-        # each tick -- this is the direct diagnostic for tanh saturation.
-        # If these collapse to nearly the same value across all three
-        # points (and across ticks), the hidden layer can't tell the
-        # three calibration points apart anymore, and no choice of
-        # output weights can produce different steering for them.
-        self.h_lo_hist = [deque(maxlen=history_len) for _ in range(net.n)]
-        self.h_mid_hist = [deque(maxlen=history_len) for _ in range(net.n)]
-        self.h_hi_hist = [deque(maxlen=history_len) for _ in range(net.n)]
-
         plt.ion()
-        self.fig, (self.ax_params, self.ax_hidden, self.ax_cal, self.ax_loss) = plt.subplots(
-            4, 1, figsize=(9, 10), sharex=True,
-            gridspec_kw={"height_ratios": [3, 2, 2, 1]})
+        self.fig, (self.ax_params, self.ax_cal, self.ax_loss) = plt.subplots(
+            3, 1, figsize=(9, 8), sharex=True,
+            gridspec_kw={"height_ratios": [3, 2, 1]})
 
         self.lines = {}
         for name in self.series:
@@ -204,28 +194,6 @@ class LivePlot:
         self.ax_params.set_title("Weights & biases (live)")
         self.ax_params.legend(loc="upper left", ncol=4, fontsize=7)
         self.ax_params.axhline(0, color="gray", linewidth=0.5)
-
-        # One line per (hidden unit, calibration point) -- color = point,
-        # linestyle = hidden unit index, so saturation-into-sameness is
-        # visible both within a point (lines bunching) and across points
-        # (all three colors bunching together).
-        point_colors = {"lo": "tab:blue", "mid": "gray", "hi": "tab:orange"}
-        linestyles = ["-", "--", ":", "-."]
-        self.h_lines = {"lo": [], "mid": [], "hi": []}
-        for point, hist_list in (("lo", self.h_lo_hist), ("mid", self.h_mid_hist), ("hi", self.h_hi_hist)):
-            for j in range(net.n):
-                (line,) = self.ax_hidden.plot(
-                    [], [], label="h[{}] @ {}".format(j, point),
-                    color=point_colors[point],
-                    linestyle=linestyles[j % len(linestyles)],
-                    linewidth=1.2)
-                self.h_lines[point].append(line)
-        self.ax_hidden.set_ylabel("h (tanh output)")
-        self.ax_hidden.set_ylim(-1.15, 1.15)
-        self.ax_hidden.axhline(1, color="gray", linewidth=0.5, linestyle=":")
-        self.ax_hidden.axhline(-1, color="gray", linewidth=0.5, linestyle=":")
-        self.ax_hidden.set_title("Hidden activations at cal.lo / mid / hi (live) -- watch for collapse toward +-1")
-        self.ax_hidden.legend(loc="upper left", ncol=3, fontsize=6)
 
         (self.lo_line,) = self.ax_cal.plot([], [], label="cal.lo", color="tab:blue", linewidth=1.4)
         (self.mid_line,) = self.ax_cal.plot([], [], label="cal.mid()", color="gray", linewidth=1.0, linestyle="--")
@@ -257,17 +225,6 @@ class LivePlot:
         self.mid_hist.append(cal.mid())
         self.hi_hist.append(cal.hi)
 
-        # Evaluate the hidden layer's response, right now, at each of the
-        # three calibration points -- using forward() only (no training),
-        # so this is a pure read of "what does the network currently see."
-        _, h_lo, _ = net.forward(cal.lo)
-        _, h_mid, _ = net.forward(cal.mid())
-        _, h_hi, _ = net.forward(cal.hi)
-        for j in range(net.n):
-            self.h_lo_hist[j].append(h_lo[j])
-            self.h_mid_hist[j].append(h_mid[j])
-            self.h_hi_hist[j].append(h_hi[j])
-
     def maybe_draw(self, force=False):
         if not force and self.t % PLOT_EVERY != 0:
             return
@@ -282,15 +239,6 @@ class LivePlot:
         self.hi_line.set_data(xs, list(self.hi_hist))
         self.ax_cal.relim()
         self.ax_cal.autoscale_view()
-
-        for j, line in enumerate(self.h_lines["lo"]):
-            line.set_data(xs, list(self.h_lo_hist[j]))
-        for j, line in enumerate(self.h_lines["mid"]):
-            line.set_data(xs, list(self.h_mid_hist[j]))
-        for j, line in enumerate(self.h_lines["hi"]):
-            line.set_data(xs, list(self.h_hi_hist[j]))
-        # y-axis is fixed to [-1.15, 1.15] at init since tanh output is
-        # bounded -- no need to autoscale this one.
 
         self.loss_line.set_data(xs, list(self.loss_hist))
         self.ax_loss.relim()
