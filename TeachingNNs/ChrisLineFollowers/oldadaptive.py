@@ -48,8 +48,8 @@ TICK_SLEEP = 0.03
 # cal.lo / cal.hi against real readings. Training and calibration continue
 # normally during this window -- only the motor command source changes.
 WOBBLE_PERIOD_TICKS = 400
-WOBBLE_DURATION_TICKS = 15
-WOBBLE_TURN_STRENGTH = 20     # motor magnitude while forced-exploring
+WOBBLE_DURATION_TICKS = 60
+WOBBLE_TURN_STRENGTH = 70     # motor magnitude while forced-exploring
 
 # Safety floor: if decay ever shrinks the calibrated range faster than
 # real exploration refreshes it, don't let lo/hi cross or collapse --
@@ -66,7 +66,7 @@ MIN_GAP = 8.0
 # further training (or correct recalibration) fixes it, because the
 # gradient that would un-saturate it is itself the thing that vanished.
 # Clipping keeps w/b in a range where tanh still has real slope.
-WEIGHT_CLIP = 10
+WEIGHT_CLIP = 6.0
 
 
 # =========================================================
@@ -105,54 +105,45 @@ class Net:
     def __init__(self, n_hidden=3, lr=0.3):
         self.n, self.lr = n_hidden, lr
         u = lambda: random.uniform(-1, 1)
-        
-        # input weights and biases
         self.w = [u() for _ in range(n_hidden)]
         self.b = [u() for _ in range(n_hidden)]
-        
-        # output weights and biases
         self.v = [[u() for _ in range(n_hidden)] for _ in range(2)]
         self.c = [u() for _ in range(2)]
 
     def forward(self, reading):
-        x = reading/100
+        x = reading / 100.0
         h = [math.tanh(self.w[j] * x + self.b[j]) for j in range(self.n)]
         y = [sum(self.v[k][j] * h[j] for j in range(self.n)) + self.c[k]
              for k in range(2)]
-        return reading, h, y
+        return x, h, y
 
-    def train_step(self, reading, target_L, target_R):
-        x, h, y = self.forward(reading) # get output at each layer
-        d_out = [y[0] - target_L, y[1] - target_R] # get difference between each for output --> dL/dyL and dL/dyR
-        loss = 0.5 * (d_out[0] ** 2 + d_out[1] ** 2) # half of MSE for derivative simplicity
-        d_hid = [(d_out[0] * self.v[0][j] + d_out[1] * self.v[1][j]) 
-                 * (1.0 - h[j] ** 2) for j in range(self.n)] # dE/dz[j] (where z is output from first linear layer before tanh)
+    def train_step(self, reading, t_L, t_R):
+        x, h, y = self.forward(reading)
+        d_out = [t_L - y[0], t_R - y[1]]
+        d_hid = [(d_out[0] * self.v[0][j] + d_out[1] * self.v[1][j])
+                 * (1.0 - h[j] ** 2) for j in range(self.n)]
         for k in range(2):
             for j in range(self.n):
-                self.v[k][j] -= self.lr * d_out[k] * h[j] # dL/dvL[j] = dL/yL * dyL/dvL[j] = d_out[0] * dh[j]
-            self.c[k] -= self.lr * d_out[k] # dL/dcL = dL/dyL = d_out[0]
+                self.v[k][j] += self.lr * d_out[k] * h[j]
+            self.c[k] += self.lr * d_out[k]
         for j in range(self.n):
-            self.w[j] -= self.lr * d_hid[j] * x # dL/dw[j] = dL/dz[j] * dz[j]/dw[j] = d_hid[j] * x
-            self.b[j] -= self.lr * d_hid[j] # dL/db[j] = dL/dz[j] * dz[j]/db[j] = d_hid[j]
+            self.w[j] += self.lr * d_hid[j] * x
+            self.b[j] += self.lr * d_hid[j]
             # Keep tanh's input weights in a range where it still has
-            # real slope. If the weights/biases get too big, h[j] gradient just flatlines at 0 so it cant really update
+            # real slope -- see WEIGHT_CLIP comment above.
             self.w[j] = max(-WEIGHT_CLIP, min(WEIGHT_CLIP, self.w[j]))
             self.b[j] = max(-WEIGHT_CLIP, min(WEIGHT_CLIP, self.b[j]))
-        return loss
+        return 0.5 * (d_out[0] ** 2 + d_out[1] ** 2)
 
 
 # =========================================================
 # Self-labeling: the robot writes its own training data
 # =========================================================
-STEER_SPEED = 0.2
-SPRINT_SPEED = 0.3
 def self_labeled_batch(cal):
     return [
-        (cal.lo,    STEER_SPEED, 0),      # darkest it has seen -> brake, turn right
-        (cal.lo + (cal.mid()-cal.lo)/2, (STEER_SPEED + SPRINT_SPEED)/2, (0 + SPRINT_SPEED)/2),
-        (cal.mid(), SPRINT_SPEED, SPRINT_SPEED),   # midpoint            -> sprint
-        (cal.hi - (cal.hi-cal.mid())/2, (0+SPRINT_SPEED)/2, (STEER_SPEED + SPRINT_SPEED)/2),
-        (cal.hi,    0, STEER_SPEED),      # lightest it has seen -> brake, turn left
+        (cal.lo,    0.40, 0),      # darkest it has seen -> brake, turn right
+        (cal.mid(), 0.90, 0.90),   # midpoint            -> sprint
+        (cal.hi,    0, 0.40),      # lightest it has seen -> brake, turn left
     ]
 
 
@@ -163,7 +154,8 @@ def clamp(v, lo=-100, hi=100):
 def drive(left_cmd, right_cmd):
     """Single place where commands reach the motors. Tank drive handles
     left/right convention internally on this chassis."""
-    motor.movement_move_tank(clamp(left_cmd), clamp(right_cmd))
+    SCALING = 0.15
+    motor.movement_move_tank(SCALING * clamp(left_cmd), SCALING * clamp(right_cmd))
 
 
 # =========================================================
@@ -189,20 +181,10 @@ class LivePlot:
         self.mid_hist = deque(maxlen=history_len)
         self.hi_hist = deque(maxlen=history_len)
 
-        # Δh[j] = h_hi[j] - h_lo[j], evaluated fresh each tick. This is the
-        # actual resolution the network has left to distinguish "darkest"
-        # from "lightest" -- it can shrink toward 0 either via saturation
-        # (h pinned near +-1 on both ends) OR via pre-activations simply
-        # clustering close together (no saturation needed). Either way,
-        # if this collapses, the output layer can't produce different
-        # steering for cal.lo vs cal.hi, regardless of what recalibration
-        # says the true extremes are.
-        self.diff_hist = [deque(maxlen=history_len) for _ in range(net.n)]
-
         plt.ion()
-        self.fig, (self.ax_params, self.ax_hidden, self.ax_cal, self.ax_loss) = plt.subplots(
-            4, 1, figsize=(9, 10), sharex=True,
-            gridspec_kw={"height_ratios": [3, 2, 2, 1]})
+        self.fig, (self.ax_params, self.ax_cal, self.ax_loss) = plt.subplots(
+            3, 1, figsize=(9, 8), sharex=True,
+            gridspec_kw={"height_ratios": [3, 2, 1]})
 
         self.lines = {}
         for name in self.series:
@@ -212,21 +194,6 @@ class LivePlot:
         self.ax_params.set_title("Weights & biases (live)")
         self.ax_params.legend(loc="upper left", ncol=4, fontsize=7)
         self.ax_params.axhline(0, color="gray", linewidth=0.5)
-
-        # One line per hidden unit: how far apart is this unit's response
-        # to the darkest vs lightest calibrated point, right now.
-        linestyles = ["-", "--", ":", "-."]
-        self.diff_lines = []
-        for j in range(net.n):
-            (line,) = self.ax_hidden.plot(
-                [], [], label="Δh[{}] = h_hi - h_lo".format(j),
-                linestyle=linestyles[j % len(linestyles)], linewidth=1.4)
-            self.diff_lines.append(line)
-        self.ax_hidden.set_ylabel("Δh (hi - lo)")
-        self.ax_hidden.set_ylim(-2.2, 2.2)
-        self.ax_hidden.axhline(0, color="gray", linewidth=0.5)
-        self.ax_hidden.set_title("Hidden-unit resolution: h at cal.hi minus h at cal.lo -- watch for collapse toward 0")
-        self.ax_hidden.legend(loc="upper left", ncol=3, fontsize=7)
 
         (self.lo_line,) = self.ax_cal.plot([], [], label="cal.lo", color="tab:blue", linewidth=1.4)
         (self.mid_line,) = self.ax_cal.plot([], [], label="cal.mid()", color="gray", linewidth=1.0, linestyle="--")
@@ -258,15 +225,6 @@ class LivePlot:
         self.mid_hist.append(cal.mid())
         self.hi_hist.append(cal.hi)
 
-        # Evaluate the hidden layer's response, right now, at cal.lo and
-        # cal.hi (no training -- pure read of current weights), and store
-        # the per-unit difference. This is the resolution the network
-        # currently has to tell "darkest" from "lightest" apart.
-        _, h_lo, _ = net.forward(cal.lo)
-        _, h_hi, _ = net.forward(cal.hi)
-        for j in range(net.n):
-            self.diff_hist[j].append(h_hi[j] - h_lo[j])
-
     def maybe_draw(self, force=False):
         if not force and self.t % PLOT_EVERY != 0:
             return
@@ -281,12 +239,6 @@ class LivePlot:
         self.hi_line.set_data(xs, list(self.hi_hist))
         self.ax_cal.relim()
         self.ax_cal.autoscale_view()
-
-        for j, line in enumerate(self.diff_lines):
-            line.set_data(xs, list(self.diff_hist[j]))
-        # y-axis is fixed to [-2.2, 2.2] at init since h is bounded in
-        # (-1, 1), so the difference is bounded in (-2, 2) -- no need to
-        # autoscale this one.
 
         self.loss_line.set_data(xs, list(self.loss_hist))
         self.ax_loss.relim()
@@ -308,6 +260,16 @@ motor.connect(card_serial="1133")
 net = Net()
 cal = Calibrator()
 
+print("Sweeping... move the sensor across the line edge now.")
+SWEEP_TICKS = 60
+time.sleep(1)
+for i in range(SWEEP_TICKS):
+    r = sensor.sensor.reflection
+    cal.update(r)
+    time.sleep(0.1)
+print("  calibrated:  lo={:.1f}  mid={:.1f}  hi={:.1f}".format(
+    cal.lo, cal.mid(), cal.hi))
+
 print("Starting on RANDOM weights -- expect it to misbehave at first.")
 plot = LivePlot(net)
 
@@ -317,19 +279,15 @@ plot = LivePlot(net)
 tick = 0
 while True:
     tick += 1
-    r = sensor.sensor.reflection # get reflection
+    r = sensor.sensor.reflection
+    cal.update(r)
 
     loss = 0.0
-
-    # train the network for one epoch
     for sample in self_labeled_batch(cal):
         loss += net.train_step(*sample)
-
-    # plot it 
     plot.push(net, loss, cal)
     plot.maybe_draw()
 
-    # Wobble if needed
     phase_in_period = tick % WOBBLE_PERIOD_TICKS
     if phase_in_period == 0:
         # Reset to the CURRENT real reading, not a fixed guess. Whatever
@@ -342,9 +300,6 @@ while True:
         half = WOBBLE_DURATION_TICKS // 2
         turn = WOBBLE_TURN_STRENGTH if phase_in_period < half else -WOBBLE_TURN_STRENGTH
         drive(turn, -turn)
-        cal.update(r)
-    
-    # Otherwise just push the reflection through the network and drive according to outputs
     else:
         _, _, y = net.forward(r)
         drive(100 * y[0], 100 * y[1])
