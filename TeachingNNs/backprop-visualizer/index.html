@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Backpropagation Flowchart Visualizer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://pyscript.net/releases/2024.11.1/core.css">
+<script type="module" src="https://pyscript.net/releases/2024.11.1/core.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+</head>
+<body>
+<div id="loading-splash" class="loading-splash">
+  <div class="loading-orb"></div>
+  <div class="loading-label">Loading backprop visualizer…</div>
+</div>
+<div id="app" class="page-wrap hidden">
+  <div id="left-panel" class="card panel">
+    <div id="setup-row">
+      <label>P1 (<input id="p1x" type="number" value="1" class="eq-num-input tiny">, <input id="p1y" type="number" value="2" class="eq-num-input tiny">)</label>
+      <label>P2 (<input id="p2x" type="number" value="2" class="eq-num-input tiny">, <input id="p2y" type="number" value="4" class="eq-num-input tiny">)</label>
+      <label>Error
+        <select id="error-select" class="channel-select">
+          <option value="mse">MSE</option>
+          <option value="mae">MAE</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </label>
+      <input id="custom-error-input" class="custom-eq-input hidden" placeholder="e.g. abs(pred - y)**1.5">
+      <label>Learning rate <input id="lr-input" type="number" value="0.1" step="0.01" class="eq-num-input wide"></label>
+      <button id="randomize-btn" class="btn-add-device btn-small">🎲 Randomize Weights</button>
+    </div>
+    <div id="network-diagram-panel">
+      <div class="section-label">Current Network</div>
+      <div class="net-diagram" id="live-network-diagram">
+        <div class="node-card input-node tip" data-tip="x — the input feature value">x</div>
+        <div class="flow-arrow">→</div>
+        <div class="eq-node linear-node tip" id="live-network-eq" data-tip="ŷ = w·x + b — current model">w·x + b</div>
+        <div class="eq-op">→</div>
+        <div class="node-card output-node tip" data-tip="ŷ — network's output for x">y</div>
+      </div>
+    </div>
+    <div id="explanation-row">
+      <div id="w-slice-panel" class="slice-plot-panel slice-plot-inactive">
+        <div class="section-label">Loss vs w</div>
+        <div id="w-slice-plot"></div>
+      </div>
+      <div id="flowchart-panel">
+        <!-- flowchart skeleton is built once by main.py and updated in place -->
+      </div>
+      <div id="b-slice-panel" class="slice-plot-panel slice-plot-inactive">
+        <div class="section-label">Loss vs b</div>
+        <div id="b-slice-plot"></div>
+      </div>
+    </div>
+    <div id="controls-row">
+      <div class="play-controls">
+        <button id="back-epoch-btn" class="btn-flow-control btn-back" title="Back an Epoch">‹‹</button>
+        <button id="back-step-btn" class="btn-flow-control btn-back" title="Back a Step">‹</button>
+        <button id="step-btn" class="btn-flow-control" title="Step">›</button>
+        <button id="epoch-btn" class="btn-flow-control" title="Run Epoch">››</button>
+      </div>
+    </div>
+    <button id="toggle-explanation-btn" class="btn-toggle-explanation">Hide Explanation</button>
+    <div class="play-float-group">
+      <button id="reset-btn" class="btn-flow-control btn-reset" title="Reset">⟲</button>
+      <button id="play-pause-btn" class="btn-flow-control btn-play-float" title="Play">▶</button>
+    </div>
+  </div>
+  <div id="right-panel" class="panel">
+    <div class="card plot-card">
+      <h3>Network Prediction</h3>
+      <div id="prediction-plot"></div>
+    </div>
+    <div class="card plot-card">
+      <div id="loss-plot"></div>
+    </div>
+  </div>
+</div>
+<script type="py" src="./main.py" config="./pyscript.toml"></script>
+</body>
+</html>

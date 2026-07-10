@@ -1,0 +1,751 @@
+/* ── Reset ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --page-bg:      #e8e9ed;
+    --card-bg:      #ffffff;
+    --card-shadow:  0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
+    --card-radius:  20px;
+
+    --border:       #e2e4ea;
+    --border-mid:   #c8cbd6;
+
+    --text-primary:   #1a1d2e;
+    --text-secondary: #5a5f7a;
+    --text-muted:     #9ca3b8;
+
+    --blue:         #1e40af;
+    --blue-bright:  #3b6ff5;
+    --blue-light:   #eef2fe;
+    --blue-mid:     #b8cafc;
+
+    --teal:         #0891b2;
+    --teal-light:   #e0f6fb;
+    --teal-dark:    #0e6b7a;
+
+    --orange-dark:  #b45309;
+
+    --amber:        #d97706;
+    --amber-light:  #fef3c7;
+    --amber-mid:    #fde68a;
+
+    --green:        #059669;
+    --green-light:  #d1fae5;
+
+    --purple:       #7c3aed;
+    --purple-light: #ede9fe;
+    --purple-mid:   #c4b5fd;
+
+    --red:          #dc2626;
+    --red-light:    #fee2e2;
+
+    --in-bg:        #f0f9ff;
+    --in-border:    #bae6fd;
+    --out-bg:       #f0fdf4;
+    --out-border:   #bbf7d0;
+    --eq-bg:        #fffbeb;
+    --eq-border:    #fde68a;
+
+    --flow-bg:      #eaf1ff;
+    --flow-border:  #93b4fb;
+
+    --font-ui:   'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--page-bg);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    padding: 14px;
+}
+
+/* ── Loading splash ────────────────────────────────────────────── */
+.loading-splash {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    background: var(--page-bg); z-index: 999;
+}
+.loading-orb {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--blue-bright);
+    animation: orb-pulse 1.3s ease-in-out infinite;
+}
+@keyframes orb-pulse {
+    0%, 100% { transform: scale(0.75); opacity: 0.5; }
+    50%       { transform: scale(1);   opacity: 1; }
+}
+.loading-label { font-size: 13px; color: var(--text-muted); }
+
+/* ── Page layout: everything fits in the viewport, no page scroll ── */
+.page-wrap {
+    width: 100%;
+    height: calc(100vh - 28px);
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 14px;
+}
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
+}
+
+#left-panel {
+    flex: 1 1 62%;
+    min-width: 0;
+    min-height: 0;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+}
+
+#right-panel {
+    flex: 0 0 360px;
+    min-height: 0;
+}
+
+/* ── Shared card shell ─────────────────────────────────────────── */
+.card {
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+}
+
+/* ── Setup row: everything on one line ────────────────────────── */
+#setup-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    padding-bottom: 10px;
+    border-bottom: 1.5px solid var(--border);
+}
+
+#setup-row label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.eq-num-input {
+    background: var(--blue-light);
+    border: 2px solid var(--blue-mid);
+    border-radius: 7px;
+    color: var(--blue);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    text-align: center;
+    transition: border-color 0.15s, background 0.15s;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.eq-num-input::-webkit-inner-spin-button,
+.eq-num-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.eq-num-input:focus {
+    outline: none;
+    border-color: var(--blue-bright);
+    background: #fff;
+}
+
+.eq-num-input.tiny {
+    width: 36px;
+    padding: 3px 4px;
+    font-size: 11px;
+}
+
+.eq-num-input.wide {
+    width: 52px;
+    padding: 3px 5px;
+    font-size: 11px;
+}
+
+.btn-small {
+    padding: 6px 14px;
+    font-size: 12px;
+}
+
+#setup-row.controls-locked {
+    opacity: 0.45;
+    pointer-events: none;
+    filter: grayscale(0.4);
+    transition: opacity 0.2s, filter 0.2s;
+}
+
+/* ── Live network diagram: always visible, updates as weights change ── */
+#network-diagram-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3px 0 16px;
+    flex-shrink: 0;
+    border-bottom: 1.5px solid var(--border);
+    gap: 8px;
+}
+
+.section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+#live-network-diagram {
+    gap: 14px;
+}
+#live-network-diagram .node-card {
+    font-size: 18px;
+    padding: 14px 22px;
+    border-radius: 16px;
+}
+#live-network-diagram .flow-arrow,
+#live-network-diagram .eq-op {
+    font-size: 26px;
+}
+#live-network-eq {
+    font-size: 20px;
+    padding: 16px 26px;
+    border-radius: 80px;
+}
+#live-network-eq.highlight-pulse {
+    background: var(--amber-light) !important;
+    border-color: var(--amber) !important;
+    box-shadow: 0 0 0 4px rgba(217,119,6,0.18);
+}
+
+#live-network-eq .dir-arrow {
+    margin: 0 3px;
+}
+
+#live-network-eq {
+    transition: background 0.2s, border-color 0.2s;
+}
+
+/* ── Explanation row: w-slice plot | flowchart | b-slice plot ───── */
+#explanation-row {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
+}
+
+/* ── Flowchart panel: single, non-scrolling, fills remaining space ── */
+#flowchart-panel {
+    flex: 1 1 46%;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+}
+
+/* ── Slim side plots showing E vs w (left) and E vs b (right) ───── */
+.slice-plot-panel {
+    flex: 1 1 27%;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0 4px;
+    /* Nudge down so the plot body lines up with the flowchart's
+       flow-wrap section rather than overlapping the point-calc
+       boxes sitting above it. */
+    margin-top: 56px;
+    transition: opacity 0.2s, filter 0.2s;
+}
+
+.slice-plot-panel .section-label {
+    font-size: 9px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+#w-slice-plot, #b-slice-plot {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+}
+
+.slice-plot-inactive {
+    opacity: 0.35;
+    filter: grayscale(0.6);
+}
+
+.epoch-block {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+}
+
+.epoch-block-header {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.point-row {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 24px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    width: 100%;
+}
+
+.point-calc-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 2px solid var(--border-mid);
+    border-radius: 14px;
+    padding: 6px 10px;
+    background: #f8f9fc;
+    transition: opacity 0.2s, filter 0.2s, border-color 0.2s, background 0.2s;
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.net-diagram {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.net-diagram .flow-arrow {
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.linear-node {
+    background: var(--eq-bg);
+    border: 2px solid var(--eq-border);
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+    min-width: 128px;
+    text-align: center;
+}
+
+.node-card {
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: var(--card-bg);
+    transition: border-color 0.15s;
+    padding: 5px 9px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 82px;
+    text-align: center;
+}
+.input-node  { background: var(--in-bg);  border-color: var(--in-border); }
+.output-node { background: var(--out-bg); border-color: var(--out-border); }
+
+.target-note {
+    display: block;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
+
+/* ── Equation oval node ────────────────────────────────────────── */
+.eq-node {
+    width: max-content;
+    min-width: 108px;
+    background: var(--eq-bg);
+    border: 2.5px solid var(--eq-border);
+    border-radius: 60px;
+    padding: 7px 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.eq-op {
+    color: var(--amber);
+    font-weight: 700;
+    font-size: 14px;
+    margin: 0 4px;
+}
+
+/* Flowchart explainer boxes (error/grad/update/final) are blue;
+   the linear-node in the network diagrams stays yellow (.eq-node default). */
+.error-node, .grad-node, .update-node {
+    background: var(--flow-bg) !important;
+    border-color: var(--flow-border) !important;
+}
+
+.custom-eq-input {
+    background: #fff;
+    border: 1.5px solid var(--purple-mid);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    padding: 5px 8px;
+    min-width: 160px;
+}
+.custom-eq-input:focus { outline: none; border-color: var(--purple); }
+
+.channel-select {
+    background: var(--blue-light);
+    border: 2px solid var(--blue-mid);
+    border-radius: 7px;
+    color: var(--blue);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 7px; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.channel-select:focus { outline: none; border-color: var(--blue-bright); background: #fff; }
+.channel-select:hover { background: #dbeafe; }
+
+.hidden { display: none !important; }
+
+/* ── Hover tooltips: short calc explainer on any diagram node ────── */
+.tip {
+    position: relative;
+    cursor: help;
+}
+.tip::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 9px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: var(--text-primary);
+    color: #fff;
+    font-family: var(--font-ui);
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    padding: 6px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s, transform 0.15s;
+    z-index: 60;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+}
+.tip:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.w-color { color: var(--teal-dark) !important; }
+.b-color { color: var(--orange-dark) !important; }
+
+/* ── Flowchart rows ────────────────────────────────────────────── */
+.flowchart-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0 2px;
+    flex: 1 1 auto;
+    min-height: 0;
+    justify-content: center;
+}
+
+.flow-row {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 2;
+    width: 100%;
+}
+
+.update-cell {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.dir-arrow {
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--text-muted);
+}
+.dir-arrow.dir-up   { color: var(--green); }
+.dir-arrow.dir-down { color: var(--purple); }
+
+.final-param .dir-arrow {
+    font-size: 20px;
+}
+
+.final-param {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--flow-bg);
+    border: 1.5px solid var(--flow-border);
+    border-radius: 10px;
+    padding: 6px 14px;
+    min-width: 100px;
+    justify-content: center;
+}
+
+/* ── Step-progress states: gray out boxes not yet reached this epoch,
+   highlight the box currently being computed in yellow/amber ─────── */
+.state-inactive .eq-node,
+.state-inactive .final-param,
+.state-inactive.point-calc-box {
+    opacity: 0.35;
+    filter: grayscale(0.6);
+}
+
+.state-active .eq-node:not(.linear-node),
+.state-active .final-param,
+.state-active.point-calc-box {
+    background: var(--amber-light) !important;
+    border-color: var(--amber) !important;
+    box-shadow: 0 0 0 3px rgba(217,119,6,0.15);
+}
+
+.state-done .eq-node,
+.state-done .final-param,
+.state-done.point-calc-box {
+    opacity: 1;
+    filter: none;
+}
+
+/* ── Bottom controls row: compact, three play buttons only ───────── */
+#controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding-top: 8px;
+    border-top: 1.5px solid var(--border);
+}
+
+.play-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-flow-control {
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    border: none;
+    background: var(--blue-bright);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 3px 12px rgba(59,111,245,0.35);
+    transition: opacity 0.15s, transform 0.1s;
+}
+.btn-flow-control:hover:not(:disabled) { opacity: 0.88; }
+.btn-flow-control:active:not(:disabled) { transform: scale(0.94); }
+.btn-flow-control:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-flow-control.is-playing {
+    background: var(--red);
+    box-shadow: 0 3px 12px rgba(220,38,38,0.30);
+}
+
+.btn-flow-control.btn-back {
+    background: var(--purple);
+    box-shadow: 0 3px 12px rgba(124,58,237,0.35);
+}
+
+/* Play + Reset float together in the bottom-right corner of the
+   panel, separate from the step/epoch/back controls. */
+.play-float-group {
+    position: absolute;
+    bottom: 14px;
+    right: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-play-float {
+    background: var(--green);
+    box-shadow: 0 4px 14px rgba(5,150,105,0.4);
+    font-size: 18px;
+    width: 50px;
+    height: 50px;
+    padding-left: 3px; /* the ▶ glyph is visually left-heavy; nudge right to center it */
+}
+.btn-play-float.is-playing {
+    background: var(--red);
+    box-shadow: 0 4px 14px rgba(220,38,38,0.35);
+    padding-left: 0; /* the ❚❚ glyph is already visually centered */
+}
+
+.btn-reset {
+    background: var(--amber);
+    box-shadow: 0 4px 14px rgba(217,119,6,0.4);
+    font-size: 20px;
+    width: 50px;
+    height: 50px;
+    padding-top: 2px; /* the ⟲ glyph sits slightly high in its own box; nudge down to center it */
+}
+.btn-reset:hover:not(:disabled) { opacity: 0.85; }
+
+/* Show/Hide Explanation toggle floats bottom-left, mirroring Play */
+.btn-toggle-explanation {
+    position: absolute;
+    bottom: 14px;
+    left: 18px;
+    padding: 8px 16px;
+    border-radius: 99px;
+    border: 2px solid var(--border-mid);
+    background: #fff;
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.btn-toggle-explanation:hover { background: var(--blue-light); border-color: var(--blue-mid); color: var(--blue-bright); }
+.btn-toggle-explanation:active { transform: scale(0.96); }
+
+.zoom-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 99px;
+    background: #f1f2f7;
+    border: 1.5px solid var(--border-mid);
+}
+.zoom-level {
+    min-width: 34px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    user-select: none;
+}
+
+.btn-add-device {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 99px;
+    background: var(--blue-bright);
+    color: #fff;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+}
+.btn-add-device:hover:not(:disabled)  { opacity: 0.88; }
+.btn-add-device:active:not(:disabled) { transform: scale(0.97); }
+.btn-add-device:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Right panel plots: shrink to fit, never overflow viewport ──── */
+.plot-card {
+    padding: 12px 16px;
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+.plot-card h3 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    flex-shrink: 0;
+}
+.plot-card > div[id$="-plot"] {
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+    position: relative;
+}
+.plot-card > div[id$="-plot"] .js-plotly-plot,
+.plot-card > div[id$="-plot"] .plot-container {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.act-help-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+@keyframes row-in {
+    from { opacity: 0; transform: translateY(6px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Responsive ────────────────────────────────────────────────── */
+@media (max-width: 960px) {
+    html, body { overflow: auto; height: auto; }
+    .page-wrap { flex-direction: column; height: auto; }
+    #right-panel { flex: 1 1 auto; width: 100%; }
+    #left-panel { height: auto; }
+    #flowchart-panel { min-height: 320px; }
+    #explanation-row { flex-direction: column; }
+    .slice-plot-panel { min-height: 160px; margin-top: 0; }
+}
