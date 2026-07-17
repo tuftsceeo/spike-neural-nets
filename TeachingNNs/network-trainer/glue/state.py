@@ -49,6 +49,7 @@ training_data: list[dict] = []   # [{"id": int, "xs": {iid: float}, "ys": {oid: 
 data_point_counter = 0
 loss_history: list[float] = []
 normalize_enabled = True
+is_generating_data = False   # True while the "Generate data" hardware-sampling loop is running
 
 ACTIVATION_OPTIONS = [
     ("None",     ""),

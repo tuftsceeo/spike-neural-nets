@@ -284,7 +284,7 @@ class Element:
                 self.state["LeftAngle"] = parsed_item.leftAngle
                 self.state["RightAngle"] = parsed_item.rightAngle
 
-        # PLOTTING STUFF
+        # LIVE PLOTTING STUFF
         for graph, var in zip(self.plots, self.plot_vars):
             val = 0
             if var == "BothSpeed":
@@ -363,7 +363,8 @@ def _channel_options_html(source_fn) -> str:
     try:
         keys = source_fn()
         return "".join(f'<option value="{key}">{key}</option>' for key in keys)
-    except Exception:
+    except Exception as e:
+        print("got error: " + e)
         return '<option value="">— value —</option>'
 
 def get_in_channels_html(device: "Element | None" = None) -> str:

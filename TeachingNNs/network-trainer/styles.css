@@ -1051,6 +1051,34 @@ body {
 .btn-add-point:hover  { opacity: 0.88; }
 .btn-add-point:active { transform: scale(0.97); }
 
+.dataset-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.btn-generate-data {
+    background: var(--blue-light);
+    border: 1.5px solid var(--blue-mid);
+    color: var(--blue-bright);
+    border-radius: 99px;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn-generate-data:hover { background: #dbeafe; border-color: var(--blue-bright); }
+.btn-generate-data.is-active {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #ef4444;
+}
+.btn-generate-data.is-active:hover { background: #fecaca; border-color: #dc2626; }
+
 /* ── Training visualization card ─────────────────────────────────── */
 .training-card { padding: 22px 28px; flex: 1 1 480px; min-width: 360px; }
 

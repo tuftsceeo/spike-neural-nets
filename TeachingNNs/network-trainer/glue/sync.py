@@ -111,13 +111,13 @@ def refresh_all_neuron_delete_visibility():
 def refresh_device_dropdowns():
     dev_opts = Device.get_device_options_html()
     for inp in state.inputs:
-        sel = get_id(f"dev-in-{inp['id']}")
+        sel = get_id(f"dev-input-{inp['id']}")
         if sel:
             cur = sel.value
             sel.innerHTML = dev_opts
             sel.value = cur
     for out in state.outputs:
-        sel = get_id(f"dev-out-{out['id']}")
+        sel = get_id(f"dev-output-{out['id']}")
         if sel:
             cur = sel.value
             sel.innerHTML = dev_opts

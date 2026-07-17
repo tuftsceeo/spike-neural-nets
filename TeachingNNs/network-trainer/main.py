@@ -46,6 +46,7 @@ import network_model
 import network_actions
 import activation_editor
 import ui_chrome
+import dataset_ui
 import arrows
 import Device
 import fit_plot
@@ -167,6 +168,17 @@ def _on_zoom_in(evt):
 def _on_debug_toggle(evt):
     state.debug_mode = evt.target.checked
     arrows.redraw_arrows()
+
+@when("click", "#generate-data-btn")
+def on_generate_data_click(evt=None):
+    if state.is_generating_data:
+        dataset_ui._stop_generate_data()
+    else:
+        dataset_ui._start_generate_data()
+
+@when("click", "#clear-data-btn")
+def on_clear_click(evt=None):
+    dataset_ui.clear_data()
 
 # ── Boot ───────────────────────────────────────────────────────────────────────
 

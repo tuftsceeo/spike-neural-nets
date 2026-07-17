@@ -45,7 +45,7 @@ def add_input(evt=None):
     dataset_ui.refresh_dataset_plot_points()
 
     def make_plot(iid=iid):
-        state.all_plots[f"plot-in-{iid}"] = live_plot.LivePlot(f"plot-in-{iid}")
+        state.all_plots[f"plot-input-{iid}"] = live_plot.LivePlot(f"plot-input-{iid}")
     window.setTimeout(create_proxy(make_plot), 60)
 
     arrows.schedule_redraw(60)
@@ -58,7 +58,7 @@ def delete_input(iid: int):
         return
     inp = state.inputs[idx]
 
-    plot_id = f"plot-in-{iid}"
+    plot_id = f"plot-input-{iid}"
     bindings._detach_plot_from_device(plot_id, inp.get("prev_device"))
     state.all_plots.pop(plot_id, None)
 
@@ -202,7 +202,7 @@ def add_output(evt=None):
     bindings.bind_output_events(oid)
 
     def make_plot(oid=oid):
-        state.all_plots[f"plot-out-{oid}"] = live_plot.LivePlot(f"plot-out-{oid}")
+        state.all_plots[f"plot-output-{oid}"] = live_plot.LivePlot(f"plot-output-{oid}")
     window.setTimeout(create_proxy(make_plot), 60)
 
     for p in state.training_data:
@@ -227,7 +227,7 @@ def delete_output(oid: int):
     idx = next((i for i, o in enumerate(state.outputs) if o["id"] == oid), None)
     if idx is None:
         return
-    state.all_plots.pop(f"plot-out-{oid}", None)
+    state.all_plots.pop(f"plot-output-{oid}", None)
 
     fit_plot_obj = state.all_plots.get("plot-fit")
     if fit_plot_obj:

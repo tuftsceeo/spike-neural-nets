@@ -71,7 +71,6 @@ def _on_device_change(evt, prefix, item_lookup_fn, channels_html_fn, attach_plot
     matched  = Device.device_by_name(dev_name)
     if chan_sel:
         chan_sel.innerHTML = channels_html_fn(matched)
-
     first_channel = None
     if chan_sel and chan_sel.options.length > 0:
         first_channel = chan_sel.options.item(0).value
@@ -104,16 +103,16 @@ def _on_channel_change(evt, prefix, item_lookup_fn, attach_plot):
     item["prev_channel"] = channel
 
 def on_input_device_change(evt):
-    _on_device_change(evt, "in", network_model.input_by_id, Device.get_in_channels_html, attach_plot=True)
+    _on_device_change(evt, "input", network_model.input_by_id, Device.get_in_channels_html, attach_plot=True)
 
 def on_input_channel_change(evt):
-    _on_channel_change(evt, "in", network_model.input_by_id, attach_plot=True)
+    _on_channel_change(evt, "input", network_model.input_by_id, attach_plot=True)
 
 def on_output_device_change(evt):
-    _on_device_change(evt, "out", network_model.output_by_id, Device.get_out_channels_html, attach_plot=False)
+    _on_device_change(evt, "output", network_model.output_by_id, Device.get_out_channels_html, attach_plot=True)
 
 def on_output_channel_change(evt):
-    _on_channel_change(evt, "out", network_model.output_by_id, attach_plot=False)
+    _on_channel_change(evt, "output", network_model.output_by_id, attach_plot=False)
 
 # ── Item binding ─────────────────────────────────────────────────────────────
 

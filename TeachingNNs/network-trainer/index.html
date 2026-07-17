@@ -126,8 +126,10 @@
 
             <!-- ── Dataset card ─────────────────────────────────────── -->
             <div class="card dataset-card">
-                <div class="connect-header">
+                <div class="connect-header dataset-header-bar">
                     <span class="connect-title">Training data</span>
+                    <button class="btn-generate-data" id="generate-data-btn" title="Sample the connected input/output hardware every 0.1s and add each reading as a new row">Collect</button>
+                    <button class="btn-generate-data" id="clear-data-btn" title="Clear dataset">Clear</button>
                 </div>
                 <div class="dataset-table">
                     <div class="dataset-row dataset-row-header" id="dataset-header"></div>

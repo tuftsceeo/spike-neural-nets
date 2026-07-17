@@ -98,8 +98,8 @@ def compute_forward() -> list[list[float]]:
     # 1. Collect input values
     for inp in state.inputs:
         iid = inp["id"]
-        dev_el  = get_id(f"dev-in-{iid}")
-        chan_el = get_id(f"chan-in-{iid}")
+        dev_el  = get_id(f"dev-input-{iid}")
+        chan_el = get_id(f"chan-input-{iid}")
         dev_name = dev_el.value if dev_el else ""
         channel  = chan_el.value if chan_el else ""
         dev = Device.device_by_name(dev_name)
@@ -130,20 +130,15 @@ def forward():
         oid = out["id"]
         y_val = state.output_values.get(oid, 0.0)
         result = int(y_val)
-        dev_el  = get_id(f"dev-out-{oid}")
-        chan_el = get_id(f"chan-out-{oid}")
+        dev_el  = get_id(f"dev-output-{oid}")
+        chan_el = get_id(f"chan-output-{oid}")
         dev_name = dev_el.value if dev_el else ""
         channel  = chan_el.value if chan_el else ""
         Device.run_output(channel, dev_name, result)
 
-        reading_el = get_id(f"reading-out-{oid}")
+        reading_el = get_id(f"reading-output-{oid}")
         if reading_el:
             reading_el.textContent = f"{y_val:.2f}"
-
-        plot_obj = state.all_plots.get(f"plot-out-{oid}")
-        if plot_obj:
-            update = plot_obj.addPoints(1, [y_val])
-            plot_obj.updatePlot(update)
 
     fit_plot_obj = state.all_plots.get("plot-fit")
     if fit_plot_obj and state.inputs and state.outputs:

@@ -43,14 +43,14 @@ def make_input_html(inp: dict) -> str:
         <div class="node-card input-node hover-target">
             <button class="item-delete-btn" id="del-input-{iid}" title="Remove input">{delete_x_svg()}</button>
             <div class="node-header">
-                <select class="node-device-select" id="dev-in-{iid}">{dev_opts}</select>
-                <span class="node-reading" id="reading-in-{iid}">—</span>
+                <select class="node-device-select" id="dev-input-{iid}">{dev_opts}</select>
+                <span class="node-reading" id="reading-input-{iid}">—</span>
             </div>
             <div class="node-plot">
-                <div class="plot-canvas" id="plot-in-{iid}" width="170" height="70"></div>
+                <div class="plot-canvas" id="plot-input-{iid}" width="170" height="70"></div>
             </div>
             <div class="plot-footer">
-                <select class="channel-select" id="chan-in-{iid}">
+                <select class="channel-select" id="chan-input-{iid}">
                     <option value="">— value —</option>
                 </select>
             </div>
@@ -102,14 +102,14 @@ def make_output_html(out: dict) -> str:
         <div class="node-card output-node hover-target">
             <button class="item-delete-btn" id="del-output-{oid}" title="Remove output">{delete_x_svg()}</button>
             <div class="node-header">
-                <select class="node-device-select" id="dev-out-{oid}">{dev_opts}</select>
-                <span class="node-reading" id="reading-out-{oid}">—</span>
+                <select class="node-device-select" id="dev-output-{oid}">{dev_opts}</select>
+                <span class="node-reading" id="reading-output-{oid}">—</span>
             </div>
             <div class="node-plot">
-                <div class="plot-canvas" id="plot-out-{oid}" width="170" height="70"></div>
+                <div class="plot-canvas" id="plot-output-{oid}" width="170" height="70"></div>
             </div>
             <div class="plot-footer">
-                <select class="channel-select" id="chan-out-{oid}">
+                <select class="channel-select" id="chan-output-{oid}">
                     <option value="">— value —</option>
                 </select>
             </div>
