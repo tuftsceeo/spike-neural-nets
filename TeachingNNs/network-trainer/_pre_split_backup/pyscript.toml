@@ -1,0 +1,10 @@
+name = "network-trainer"
+packages = [ "legoeducation","numpy"]
+
+[files]
+"./Device.py" = ""
+"./plot.py" = ""
+
+[js_modules.main]
+"./ble.js" = "ble"
+"./plotly.js" = "Plotly"

@@ -2,8 +2,23 @@ name = "network-trainer"
 packages = [ "legoeducation","numpy"]
 
 [files]
+"./state.py" = ""
+"./activations.py" = ""
 "./Device.py" = ""
-"./plot.py" = ""
+"./templates.py" = ""
+"./arrows.py" = ""
+"./network_model.py" = ""
+"./sync.py" = ""
+"./bindings.py" = ""
+"./dataset_ui.py" = ""
+"./activation_editor.py" = ""
+"./network_actions.py" = ""
+"./ui_chrome.py" = ""
+"./plot_utils.py" = ""
+"./live_plot.py" = ""
+"./fit_plot.py" = ""
+"./loss_plot.py" = ""
+"./scatter_plot.py" = ""
 
 [js_modules.main]
 "./ble.js" = "ble"

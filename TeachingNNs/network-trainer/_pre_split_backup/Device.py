@@ -4,12 +4,11 @@ import concurrent.futures
 import legoeducation as le
 import legoeducation.background_worker as bw
 import legoeducation.basic_device as bd
-from pyscript import document
 from pyscript.js_modules import ble
 from pyscript.ffi import create_proxy
 import json
-
-import state
+import plot
+from pyscript.js_modules import Plotly
 
 def _nowait_event_wait(self, timeout=None):
     return self._flag
@@ -339,129 +338,8 @@ class Element:
         self.hardware_state[variable] = value
         freq = self.hardware_state["BeepFrequency"] if self.hardware_state["BeepFrequency"] != 0 else 1 # dont want it to beep at 0
         self.hub.beep(frequency=freq, blocking=False)
-
-
-# ── Lookup / options-list helpers ────────────────────────────────────────────
-
-def device_by_name(name: str) -> "Element | None":
-    for d in state.devices:
-        if d.name == name:
-            return d
-    return None
-
-def get_device_options_html() -> str:
-    opts = '<option class="dev-dropdown" value="">— device —</option>'
-    for device in state.devices:
-        opts += f'<option value="{device.name}">{device.name}</option>'
-    return opts
-
-def _channel_options_html(source_fn) -> str:
-    """Shared fallback-on-exception shape for get_in_channels_html/
-    get_out_channels_html: try to pull the option keys from `source_fn`,
-    fall back to a single placeholder option on any error (e.g. the device
-    doesn't expose that list yet)."""
-    try:
-        keys = source_fn()
-        return "".join(f'<option value="{key}">{key}</option>' for key in keys)
-    except Exception:
-        return '<option value="">— value —</option>'
-
-def get_in_channels_html(device: "Element | None" = None) -> str:
-    if device is None:
-        return '<option value="">— value —</option>'
-    return _channel_options_html(lambda: device.state.keys())
-
-def get_out_channels_html(device: "Element | None" = None) -> str:
-    if device is None:
-        return '<option value="">— value —</option>'
-    return _channel_options_html(device.get_out_list)
-
-# ── Device management (connect/disconnect UI) ────────────────────────────────
-
-async def add_device_chip(dev: "Element"):
-    dl = document.getElementById("device-list")
-
-    name = dev.name
-    chip = document.createElement("div")
-    chip.className = "device-row"
-    chip.id = f"chip-{name}"
-    chip.innerHTML = (
-        f'<div class="device-indicator"></div>'
-        f'<span class="device-name">{name}</span>'
-        f'<button class="btn-disconnect" title="Disconnect">'
-        f'    <svg width="11" height="11" viewBox="0 0 24 24" fill="none"'
-        f'         stroke="currentColor" stroke-width="2.5">'
-        f'        <path d="M18 6L6 18M6 6l12 12"/>'
-        f'    </svg>'
-        f'</button>'
-    )
-
-    disc = chip.querySelector(".btn-disconnect")
-
-    async def make_disc(dev):
-        async def handler(evt):
-            import sync
-            chip_el = document.getElementById(f"chip-{dev.myble.device.name}")
-            if chip_el:
-                chip_el.remove()
-            await dev.disconnect()
-            state.devices.remove(dev)
-            sync.refresh_device_dropdowns()
-        return create_proxy(handler)
-
-    disc.addEventListener("click", await make_disc(dev))
-    dl.appendChild(chip)
-    import sync
-    sync.refresh_device_dropdowns()
-
-async def create_new_device(evt=None):
-    import sync
-    new_dev = Element()
-    existing_names = [d.name for d in state.devices]
-    await new_dev.connect(existing_names=existing_names)
-    print("out of connect")
-    if not new_dev.hub or not new_dev.hub.connected:
-        return
-    state.devices.append(new_dev)
-    await add_device_chip(new_dev)
-    sync.refresh_device_dropdowns()
-
-# ── Output routing ───────────────────────────────────────────────────────────
-
-def run_output(variable, dev_name, value):
-    device = device_by_name(dev_name)
-    if not device:
-        return
-    if "Speed" in variable:
-        if value > 100:
-            value = 100
-        elif value < -100:
-            value = -100
-    if variable == "Speed":
-        device.set_speed(value)
-    elif variable == "LeftSpeed":
-        device.set_speedL(value)
-    elif variable == "RightSpeed":
-        device.set_speedR(value)
-    elif variable == "BothSpeed":
-        device.set_speed(value)
-    elif variable == "LightColor":
-        device.set_light(variable, value)
-    elif variable == "LightPattern":
-        device.set_light(variable, value)
-    elif variable == "LightIntensity":
-        if value > 100:
-            value = 100
-        elif value < 0:
-            value = 0
-        device.set_light(variable, value)
-    elif variable == "BeepPattern":
-        device.set_beep(variable, value)
-    elif variable == "BeepFrequency":
-        if value < 0:
-            value = 0
-        elif value > 2700:
-            value = 2700
-        device.set_beep(variable, value)
-    else:
-        print("Cannot set " + str(variable))
+        
+        
+            
+            
+    
