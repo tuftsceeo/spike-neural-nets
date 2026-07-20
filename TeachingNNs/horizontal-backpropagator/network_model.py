@@ -20,12 +20,25 @@ import random
 import state
 from activations import apply_activation, apply_activation_derivative
 
+
+def _clip_grad(value: float) -> float:
+    limit = state.MAX_GRAD_NORM
+    if value > limit:
+        return limit
+    if value < -limit:
+        return -limit
+    return value
+
+
 # ── Topology ──────────────────────────────────────────────────────────────
 
 def add_layer():
     w = random.uniform(*state.INIT_WEIGHT_RANGE)
     b = random.uniform(*state.INIT_WEIGHT_RANGE) if state.biases_enabled else 0.0
-    state.layers.append({"id": state.next_layer_id(), "w": w, "b": b, "act": "none"})
+    state.layers.append({
+        "id": state.next_layer_id(), "w": w, "b": b, "act": "none",
+        "last_delta_w": None, "last_delta_b": None,
+    })
     reset_training()
 
 
@@ -47,9 +60,10 @@ def set_layer_activation(lid: int, act: str):
 
 def set_biases_enabled(enabled: bool):
     state.biases_enabled = enabled
-    if not enabled:
-        for l in state.layers:
+    for l in state.layers:
+        if not enabled:
             l["b"] = 0.0
+        l["last_delta_b"] = None
     reset_training()
 
 
@@ -57,6 +71,8 @@ def randomize_weights():
     for l in state.layers:
         l["w"] = random.uniform(*state.INIT_WEIGHT_RANGE)
         l["b"] = random.uniform(*state.INIT_WEIGHT_RANGE) if state.biases_enabled else 0.0
+        l["last_delta_w"] = None
+        l["last_delta_b"] = None
     reset_training()
 
 
@@ -167,8 +183,8 @@ def build_backward_plan() -> list[dict]:
 
             next_grad_out_per_point[k] = delta * layer["w"]
 
-        grad_w = grad_w_sum / n
-        grad_b = grad_b_sum / n
+        grad_w = _clip_grad(grad_w_sum / n)
+        grad_b = _clip_grad(grad_b_sum / n)
         avg_grad_out = grad_out_sum / n
         avg_act_deriv = act_deriv_sum / n
         avg_delta = delta_sum / n
@@ -200,11 +216,15 @@ def build_backward_plan() -> list[dict]:
 
 def apply_plan_step(step_num: int) -> dict:
     """Applies plan[step_num - 1] (step_num is 1..len(plan)) to the real
-    layer weights and returns that plan entry."""
+    layer weights and returns that plan entry. Also records how much each
+    value just moved, so the diagram can draw a direction/magnitude
+    indicator next to it."""
     entry = state.plan[step_num - 1]
     layer = next(l for l in state.layers if l["id"] == entry["layer_id"])
+    layer["last_delta_w"] = entry["w_new"] - entry["w_old"]
     layer["w"] = entry["w_new"]
     if state.biases_enabled:
+        layer["last_delta_b"] = entry["b_new"] - entry["b_old"]
         layer["b"] = entry["b_new"]
     return entry
 
@@ -212,13 +232,17 @@ def apply_plan_step(step_num: int) -> dict:
 # ── Snapshotting for backward step/epoch ──────────────────────────────────
 
 def take_snapshot():
+    # loss_history is stored by LENGTH, not a copied list -- Play can take
+    # thousands of snapshots per session, and re-copying the whole
+    # (monotonically growing) loss history on every single one of them
+    # made each snapshot progressively more expensive the longer Play ran.
     state.history.append({
         "epoch": state.epoch,
         "step_index": state.step_index,
         "layers": [dict(l) for l in state.layers],
         "plan": [dict(p) for p in state.plan],
         "forward_cache": state.forward_cache,
-        "loss_history": list(state.loss_history),
+        "loss_history_len": len(state.loss_history),
     })
 
 
@@ -229,7 +253,7 @@ def restore_snapshot(snap: dict):
         l.update(saved)
     state.plan = [dict(p) for p in snap["plan"]]
     state.forward_cache = snap["forward_cache"]
-    state.loss_history = list(snap["loss_history"])
+    state.loss_history = state.loss_history[:snap["loss_history_len"]]
 
 
 # ── Dataset mutation ──────────────────────────────────────────────────────

@@ -82,10 +82,18 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
 }
 .loading-label { font-size: 13px; color: var(--text-muted); }
 
-/* ── Page layout: sized to fit one screen; the page scrolls if it can't ── */
+/* ── Page layout: sized to fit one screen ─────────────────────────────
+   A definite height (not min-height) is what makes .bottom-row's flex
+   children -- the dataset table and the two plots -- actually share one
+   bounded height instead of the dataset table growing past the plots
+   whenever it has more rows than fit. If the top panel still ends up
+   needing more room than the viewport has (a very tall diagram), flex
+   items with flex-shrink:0 simply render past this height rather than
+   getting clipped, and body's overflow-y:auto (below) makes that
+   reachable by scrolling instead of lost. ─────────────────────────────── */
 .page-wrap {
     width: 100%;
-    min-height: calc(100vh - 20px);
+    height: calc(100vh - 20px);
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -205,14 +213,22 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
    page vertically instead). .diagram-canvas is the positioned ancestor
    the gradient-arrow SVG and floating labels are anchored to -- since
    it's the thing that scrolls, the arrows/labels scroll right along with
-   the boxes they're attached to. ─────────────────────────────────────── */
+   the boxes they're attached to.
+
+   justify-content is flex-start, NOT center: centering an overflowing
+   flex child with justify-content is a well-known trap -- the overflow
+   on one side becomes impossible to reach by scrolling in some browsers,
+   which is exactly the "can't scroll far enough left" bug this replaces.
+   .diagram-canvas's own `margin: 0 auto` gets the same "centered when it
+   fits" look, but because it's a margin (not container alignment) it
+   correctly participates in the scrollable area on both sides. ───────── */
 .network-wrap {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     overflow-x: auto;
     overflow-y: visible;
     padding: 6px 8px;
-    min-height: 108px;
+    min-height: 220px;
 }
 
 .diagram-canvas {
@@ -222,7 +238,7 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
     gap: 14px;
     flex-wrap: nowrap;
     flex-shrink: 0;
-    padding-bottom: 76px;
+    padding: 74px 4px;
     margin: 0 auto;
 }
 
@@ -254,6 +270,13 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
     padding: 2px 6px;
     animation: row-in 0.2s ease;
     white-space: nowrap;
+}
+
+/* Alternating markers put every other label above the diagram instead of
+   below, so labels along the chain get to spread across two rows of
+   breathing room instead of piling onto one. */
+.grad-label.above {
+    transform: translate(-50%, -100%);
 }
 
 .grad-label-formula {
@@ -325,6 +348,18 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
     align-items: center;
     gap: 3px;
     min-width: 84px;
+}
+
+/* Labels the linear/weight node's own value (z_i, the pre-activation sum)
+   the same way .neuron-title labels the activation box's a_i -- so every
+   symbol used in a chain-rule formula is anchored to a visible box on
+   screen instead of appearing out of nowhere. */
+.linear-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--amber);
+    cursor: help;
 }
 
 /* Equation node: the weight (and bias, if enabled) rendered as an
@@ -461,6 +496,18 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
 
 .w-color { color: var(--teal-dark) !important; }
 .b-color { color: var(--orange-dark) !important; }
+
+/* Direction/magnitude indicator next to a weight or bias: ▲ if it just
+   grew, ▼ if it just shrank, sized (via inline font-size, set in Python)
+   proportionally to how big that change was. */
+.delta-arrow {
+    display: inline-block;
+    margin-left: 2px;
+    line-height: 1;
+    vertical-align: middle;
+    font-weight: 900;
+    cursor: help;
+}
 
 /* ── Training controls row: back/step/epoch stay centered on the full
    row width; play + reset float to the right, in their own group ──── */
@@ -765,6 +812,7 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
 
 /* ── Responsive ────────────────────────────────────────────────── */
 @media (max-width: 960px) {
+    .page-wrap { height: auto; }
     .bottom-row { flex-direction: column; min-height: 0; }
     .dataset-card { flex: 1 1 auto; max-height: 260px; }
     .plot-card { min-height: 240px; }

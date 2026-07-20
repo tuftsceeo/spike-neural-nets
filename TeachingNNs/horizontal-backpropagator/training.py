@@ -141,7 +141,7 @@ def backward_epoch():
 
 # ── Play / Pause ────────────────────────────────────────────────────────
 
-PLAY_DELAY = 0.01
+PLAY_DELAY = 0.03
 _play_task = None
 
 

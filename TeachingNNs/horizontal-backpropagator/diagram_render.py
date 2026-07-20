@@ -50,6 +50,9 @@ def build_diagram():
         layers_track_el.appendChild(make_el("div", "flow-arrow", text="→"))
 
         conn_cell = make_el("div", "conn-cell")
+        linear_title = make_el("div", "linear-title", text=f"z{pos}")
+        linear_title.title = f"z{pos} — the pre-activation value: {pos == 1 and 'x' or f'a{pos - 1}'} times the weight (plus the bias, if on), before the activation function is applied."
+        conn_cell.appendChild(linear_title)
         weight_badge = make_el("div", "weight-badge", id_=f"weight-badge-{lid}")
         conn_cell.appendChild(weight_badge)
         layers_track_el.appendChild(conn_cell)
@@ -115,16 +118,30 @@ def _source_symbol(idx):
     return "x" if idx == 0 else f"a<sub>{idx}</sub>"
 
 
+def _delta_arrow_html(delta, color_var):
+    """A small ▲/▼ next to a weight or bias showing which way it last
+    moved -- taller for a bigger change, shorter for a smaller one (a
+    tanh curve so it saturates instead of growing without bound)."""
+    if not delta:
+        return ""
+    arrow = "▲" if delta > 0 else "▼"
+    size = 9.0 + 15.0 * math.tanh(abs(delta) * 3.0)
+    return (f"<span class='delta-arrow' style='font-size:{size:.1f}px; color:{color_var};' "
+            f"title='changed by {delta:+.3f} last update'>{arrow}</span>")
+
+
 def _weight_badge_html(layer, idx):
     """Renders the layer's weight (and bias, if enabled) as a single
     algebraic equation -- e.g. "5.00x" or "1.20a1 + 0.30" -- instead of a
     bare "w = 5" label."""
     source = _source_symbol(idx)
-    html = f"<span class='w-color'>{fmt(layer['w'], 2)}</span>{source}"
+    w_arrow = _delta_arrow_html(layer.get("last_delta_w"), "var(--teal-dark)")
+    html = f"<span class='w-color'>{fmt(layer['w'], 2)}</span>{source}{w_arrow}"
     if state.biases_enabled:
         b = layer["b"]
         sign = "+" if b >= 0 else "−"
-        html += f" <span class='eq-op'>{sign}</span> <span class='b-color'>{fmt(abs(b), 2)}</span>"
+        b_arrow = _delta_arrow_html(layer.get("last_delta_b"), "var(--orange-dark)")
+        html += f" <span class='eq-op'>{sign}</span> <span class='b-color'>{fmt(abs(b), 2)}</span>{b_arrow}"
     return html
 
 
@@ -161,11 +178,13 @@ def clear_all_highlights():
 
 # ── Backward-reveal arrows + chain-rule labels ────────────────────────────
 #
-# Each revealed sub-step draws one curved arrow running from the BOTTOM
-# edge of the box the gradient just arrived from to the BOTTOM edge of the
-# box it's arriving at now, with its chain-rule formula centered under the
-# dip of that arrow -- not floating arbitrarily. Markers accumulate across
-# an epoch's reveal and are cleared together at the next forward pass.
+# Each revealed sub-step draws one curved arrow running from an edge of the
+# box the gradient just arrived from to the matching edge of the box it's
+# arriving at now, with its chain-rule formula centered under (or over) the
+# dip of that arrow -- not floating arbitrarily. Consecutive markers
+# alternate above/below the diagram so labels have room to breathe instead
+# of stacking up on one side. Markers accumulate across an epoch's reveal
+# and are cleared together at the next forward pass.
 
 def marker_endpoints(plan_idx, is_activation):
     """(source_box_id, target_box_id) for a given plan index/stage,
@@ -187,7 +206,10 @@ def marker_endpoints(plan_idx, is_activation):
 
 
 def add_grad_marker(source_id, target_id, html):
-    state.grad_markers.append({"source_id": source_id, "target_id": target_id, "html": html})
+    above = len(state.grad_markers) % 2 == 1
+    state.grad_markers.append({
+        "source_id": source_id, "target_id": target_id, "html": html, "above": above,
+    })
     redraw_grad_markers()
 
 
@@ -239,13 +261,19 @@ def redraw_grad_markers():
         if source_el is None or target_el is None:
             continue
 
+        above = marker.get("above", False)
         sr = source_el.getBoundingClientRect()
         tr = target_el.getBoundingClientRect()
         x1 = sr.left - canvas_rect.left + sr.width / 2
-        y1 = sr.top - canvas_rect.top + sr.height
         x2 = tr.left - canvas_rect.left + tr.width / 2
-        y2 = tr.top - canvas_rect.top + tr.height
-        dip = max(y1, y2) + 34
+        if above:
+            y1 = sr.top - canvas_rect.top
+            y2 = tr.top - canvas_rect.top
+            dip = min(y1, y2) - 34
+        else:
+            y1 = sr.top - canvas_rect.top + sr.height
+            y2 = tr.top - canvas_rect.top + tr.height
+            dip = max(y1, y2) + 34
 
         path_d = f"M{x1:.1f},{y1:.1f} Q{(x1 + x2) / 2:.1f},{dip:.1f} {x2:.1f},{y2:.1f}"
         grad_arrow_svg_el.appendChild(_svg_path(path_d))
@@ -254,10 +282,10 @@ def redraw_grad_markers():
         if head_d:
             grad_arrow_svg_el.appendChild(_svg_path(head_d))
 
-        label = make_el("div", "grad-label")
+        label = make_el("div", "grad-label above" if above else "grad-label")
         label.innerHTML = marker["html"]
         label.style.left = f"{(x1 + x2) / 2:.1f}px"
-        label.style.top = f"{dip + 6:.1f}px"
+        label.style.top = f"{(dip - 6) if above else (dip + 6):.1f}px"
         grad_label_layer_el.appendChild(label)
 
 

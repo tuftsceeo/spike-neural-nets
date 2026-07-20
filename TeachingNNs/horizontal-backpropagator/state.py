@@ -22,6 +22,7 @@ data_counter = 0
 ACTIVATION_OPTIONS = [
     ("None", "none"),
     ("ReLU", "relu"),
+    ("Leaky ReLU", "leaky_relu"),
     ("Sigmoid", "sigmoid"),
     ("Tanh", "tanh"),
     ("Softplus", "softplus"),
@@ -49,7 +50,13 @@ grad_markers: list[dict] = []
 # Snapshot stack for backward step/epoch (see network_model.take_snapshot).
 history: list[dict] = []
 
-INIT_WEIGHT_RANGE = (-1.0, 1.0)
+# Narrower than (-1, 1) -- a deep strict chain of ReLU-family layers is
+# very prone to a large early weight pushing a pre-activation negative and
+# zeroing the gradient for every layer behind it ("dying"), so random init
+# leans smaller to reduce (not eliminate -- that's an inherent property of
+# a 1-wide chain) how often that happens.
+INIT_WEIGHT_RANGE = (-0.7, 0.7)
+MAX_GRAD_NORM = 5.0
 
 
 def get_id(id_: str):

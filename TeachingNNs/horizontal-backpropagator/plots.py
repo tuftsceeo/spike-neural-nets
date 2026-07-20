@@ -54,7 +54,10 @@ def _rescale_fit_axes():
     """Plotly.restyle() alone doesn't always re-fit the axes to newly
     changed data -- once an axis has rendered, its range can stay "stuck"
     at the old extent. Force both axes to recompute so a newly added point
-    outside the current view is actually visible."""
+    outside the current view is actually visible. Only called when the
+    DATASET changes (adding/removing a point is rare) -- NOT on every
+    training step/epoch, since Play calls update_fit_curve() dozens of
+    times a second and a relayout that often bogs the whole page down."""
     Plotly.relayout(fit_plot_el, to_js({"xaxis.autorange": True, "yaxis.autorange": True}))
 
 
@@ -70,7 +73,6 @@ def update_fit_data():
 def update_fit_curve():
     xs, ys = _curve_points()
     Plotly.restyle(fit_plot_el, to_js({"x": [xs], "y": [ys]}), to_js([1]))
-    _rescale_fit_axes()
 
 
 def init_loss_plot():
