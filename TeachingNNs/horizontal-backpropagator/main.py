@@ -45,13 +45,13 @@ def on_topology_changed():
 def on_weight_change():
     diagram_render.render_weight_badges()
     diagram_render.clear_grad_markers()
-    diagram_render.render_output_readout()
+    diagram_render.render_loss_readout()
     refresh_plots_and_controls()
 
 
 def on_dataset_changed():
     diagram_render.clear_grad_markers()
-    diagram_render.render_output_readout()
+    diagram_render.render_loss_readout()
     refresh_plots_and_controls()
 
 

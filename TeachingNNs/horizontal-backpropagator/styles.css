@@ -287,14 +287,6 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
     white-space: nowrap;
 }
 
-.grad-label-nums {
-    font-family: var(--font-mono);
-    font-size: 9.5px;
-    font-weight: 600;
-    color: var(--text-muted);
-    white-space: nowrap;
-}
-
 .net-diagram {
     display: flex;
     align-items: center;
@@ -320,12 +312,30 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
 .input-node  { background: var(--in-bg);  border-color: var(--in-border); }
 .output-node { background: var(--out-bg); border-color: var(--out-border); }
 
-.output-readout {
+/* The loss lives in its own node after ŷ (not folded into ŷ's box), so it
+   can be visibly the thing that gets computed and highlighted each epoch,
+   distinctly from the network's own output. */
+.loss-node {
+    background: var(--red-light);
+    border-color: #fca5a5;
+    color: var(--red);
+}
+
+.loss-readout {
     font-size: 10px;
     font-weight: 700;
-    color: var(--text-muted);
+    color: var(--red);
     margin-top: 3px;
     letter-spacing: 0.02em;
+}
+
+@keyframes loss-pulse-anim {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.22); background: #fecaca; border-color: var(--red); }
+    100% { transform: scale(1); }
+}
+.loss-node.loss-pulse {
+    animation: loss-pulse-anim 0.5s ease;
 }
 
 .flow-arrow {
@@ -350,7 +360,7 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
     min-width: 84px;
 }
 
-/* Labels the linear/weight node's own value (z_i, the pre-activation sum)
+/* Labels the linear/weight node's own value (n_i, the pre-activation sum)
    the same way .neuron-title labels the activation box's a_i -- so every
    symbol used in a chain-rule formula is anchored to a visible box on
    screen instead of appearing out of nowhere. */
@@ -408,7 +418,8 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
 }
 
 .weight-badge.active-highlight,
-.neuron-box.active-highlight {
+.neuron-box.active-highlight,
+.node-card.active-highlight {
     border-color: var(--amber) !important;
     box-shadow: 0 0 0 4px rgba(217,119,6,0.16);
 }
@@ -497,15 +508,14 @@ body { padding: 10px; overflow-y: auto; overflow-x: hidden; }
 .w-color { color: var(--teal-dark) !important; }
 .b-color { color: var(--orange-dark) !important; }
 
-/* Direction/magnitude indicator next to a weight or bias: ▲ if it just
-   grew, ▼ if it just shrank, sized (via inline font-size, set in Python)
-   proportionally to how big that change was. */
-.delta-arrow {
+/* Direction/magnitude indicator next to a weight or bias: an actual arrow
+   (drawn as inline SVG in Python, not a glyph), pointing up if it just
+   grew, down if it just shrank. Only its HEIGHT (shaft length) encodes
+   the size of the change -- its width is fixed, set on the <svg> itself. */
+svg.delta-arrow-svg {
     display: inline-block;
     margin-left: 2px;
-    line-height: 1;
     vertical-align: middle;
-    font-weight: 900;
     cursor: help;
 }
 

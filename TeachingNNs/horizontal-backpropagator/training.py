@@ -1,7 +1,8 @@
-"""The step machine: forward pass -> two backward-reveal sub-steps per
-layer (activation, then linear/weight; right to left) -> epoch complete.
-Mirrors gradient-descent-visualization's do_step()/run_epoch()/play_loop()
-pattern, generalized to N layers and to two chain-rule stages per layer."""
+"""The step machine: forward pass -> the boundary hop (loss into ŷ) -> two
+backward-reveal sub-steps per layer (activation, then linear/weight; right
+to left) -> epoch complete. Mirrors gradient-descent-visualization's
+do_step()/run_epoch()/play_loop() pattern, generalized to N layers and to
+the extra boundary + two chain-rule stages per layer."""
 import asyncio
 
 import state
@@ -27,7 +28,28 @@ def update_back_button_states():
 
 
 def _total_substeps() -> int:
-    return 2 * len(state.plan)
+    # +1 for the boundary hop (loss -> ŷ), then activation+linear per layer.
+    return 2 * len(state.plan) + 1
+
+
+def _reveal_substep(s: int):
+    """Renders backward-reveal sub-step s (2..total): s==1 is handled by
+    the caller directly (the boundary hop). Applies the weight update for
+    a linear/weight sub-step; every other sub-step is purely visual."""
+    if s == 1:
+        diagram_render.render_boundary_reveal()
+        return
+
+    plan_idx = (s - 2) // 2
+    entry = state.plan[plan_idx]
+    is_activation = (s - 2) % 2 == 0
+
+    if is_activation:
+        diagram_render.render_activation_reveal(entry, plan_idx)
+    else:
+        network_model.apply_plan_step(plan_idx + 1)
+        diagram_render.render_linear_reveal(entry, plan_idx)
+        plots.update_fit_curve()
 
 
 def do_step():
@@ -39,19 +61,11 @@ def do_step():
         state.plan = network_model.build_backward_plan()
         diagram_render.clear_grad_markers()
         diagram_render.clear_all_highlights()
-        diagram_render.render_output_readout()
+        diagram_render.render_loss_readout()
+        asyncio.ensure_future(diagram_render.pulse_loss())
         state.step_index = 1
     else:
-        plan_idx = (state.step_index - 1) // 2
-        entry = state.plan[plan_idx]
-        is_activation = state.step_index % 2 == 1
-
-        if is_activation:
-            diagram_render.render_activation_reveal(entry)
-        else:
-            network_model.apply_plan_step(plan_idx + 1)
-            diagram_render.render_linear_reveal(entry)
-            plots.update_fit_curve()
+        _reveal_substep(state.step_index)
 
         if state.step_index >= _total_substeps():
             state.loss_history.append((state.epoch, state.forward_cache["mean_loss"]))
@@ -87,7 +101,7 @@ def run_epoch_turbo():
 
     diagram_render.clear_grad_markers()
     diagram_render.clear_all_highlights()
-    diagram_render.render_output_readout()
+    diagram_render.render_loss_readout()
     diagram_render.render_weight_badges()
     plots.update_fit_curve()
 
@@ -109,12 +123,22 @@ def _replay_revealed_substeps():
     if not state.plan or state.step_index < 1:
         return
     for s in range(1, state.step_index + 1):
-        plan_idx = (s - 1) // 2
-        entry = state.plan[plan_idx]
-        if s % 2 == 1:
-            diagram_render.render_activation_reveal(entry)
-        else:
-            diagram_render.render_linear_reveal(entry)
+        _reveal_substep_readonly(s)
+
+
+def _reveal_substep_readonly(s: int):
+    """Same rendering as _reveal_substep(), but never applies a weight
+    update -- used for replay after restore_snapshot() has already set
+    state.layers to the correct historical values."""
+    if s == 1:
+        diagram_render.render_boundary_reveal()
+        return
+    plan_idx = (s - 2) // 2
+    entry = state.plan[plan_idx]
+    if (s - 2) % 2 == 0:
+        diagram_render.render_activation_reveal(entry, plan_idx)
+    else:
+        diagram_render.render_linear_reveal(entry, plan_idx)
 
 
 def do_backward_step():
@@ -124,7 +148,7 @@ def do_backward_step():
     snap = state.history[-1]
     network_model.restore_snapshot(snap)
     diagram_render.render_weight_badges()
-    diagram_render.render_output_readout()
+    diagram_render.render_loss_readout()
     _replay_revealed_substeps()
     plots.update_fit_curve()
     plots.update_loss_plot()

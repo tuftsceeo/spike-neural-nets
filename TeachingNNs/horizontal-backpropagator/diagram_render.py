@@ -12,7 +12,7 @@ import state
 import network_model
 
 layers_track_el = state.get_id("layers-track")
-output_readout_el = state.get_id("output-readout")
+loss_readout_el = state.get_id("loss-readout")
 diagram_canvas_el = state.get_id("diagram-canvas")
 grad_arrow_svg_el = state.get_id("grad-arrow-svg")
 grad_label_layer_el = state.get_id("grad-label-layer")
@@ -46,12 +46,16 @@ def build_diagram():
     for idx, layer in enumerate(state.layers):
         lid = layer["id"]
         pos = idx + 1
+        source_name = "x" if idx == 0 else f"a{idx}"
 
         layers_track_el.appendChild(make_el("div", "flow-arrow", text="→"))
 
         conn_cell = make_el("div", "conn-cell")
-        linear_title = make_el("div", "linear-title", text=f"z{pos}")
-        linear_title.title = f"z{pos} — the pre-activation value: {pos == 1 and 'x' or f'a{pos - 1}'} times the weight (plus the bias, if on), before the activation function is applied."
+        linear_title = make_el("div", "linear-title", text=f"n{pos}")
+        linear_title.title = (
+            f"n{pos} — the pre-activation value: {source_name} times the weight "
+            f"(plus the bias, if on), before the activation function is applied."
+        )
         conn_cell.appendChild(linear_title)
         weight_badge = make_el("div", "weight-badge", id_=f"weight-badge-{lid}")
         conn_cell.appendChild(weight_badge)
@@ -95,7 +99,7 @@ def build_diagram():
 
     render_weight_badges()
     clear_grad_markers()
-    render_output_readout()
+    render_loss_readout()
 
 
 def on_activation_change(lid, value):
@@ -118,16 +122,35 @@ def _source_symbol(idx):
     return "x" if idx == 0 else f"a<sub>{idx}</sub>"
 
 
-def _delta_arrow_html(delta, color_var):
-    """A small ▲/▼ next to a weight or bias showing which way it last
-    moved -- taller for a bigger change, shorter for a smaller one (a
-    tanh curve so it saturates instead of growing without bound)."""
+ARROW_SHAFT_WIDTH = 3.0
+ARROW_HEAD_SIZE = 4.5
+ARROW_SVG_WIDTH = 12.0
+
+
+def _delta_arrow_html(delta, color):
+    """A small direction/magnitude arrow next to a weight or bias -- an
+    actual arrow (shaft + fixed-size head), not a glyph, so only its
+    HEIGHT (shaft length) grows with the size of the change; its width
+    never changes. Points up if the value just grew, down if it shrank."""
     if not delta:
         return ""
-    arrow = "▲" if delta > 0 else "▼"
-    size = 9.0 + 15.0 * math.tanh(abs(delta) * 3.0)
-    return (f"<span class='delta-arrow' style='font-size:{size:.1f}px; color:{color_var};' "
-            f"title='changed by {delta:+.3f} last update'>{arrow}</span>")
+    shaft_len = 5.0 + 16.0 * math.tanh(abs(delta) * 3.0)
+    total_h = shaft_len + ARROW_HEAD_SIZE + 3.0
+    cx = ARROW_SVG_WIDTH / 2
+    if delta > 0:
+        tip_y, tail_y, dy = 2.0, 2.0 + shaft_len, -shaft_len
+    else:
+        tip_y, tail_y, dy = total_h - 2.0, total_h - 2.0 - shaft_len, shaft_len
+    shaft_d = f"M{cx:.1f},{tail_y:.1f} L{cx:.1f},{tip_y:.1f}"
+    head_d = _arrowhead_path_d(cx, tip_y, 0.0, dy, size=ARROW_HEAD_SIZE)
+    path_d = f"{shaft_d} {head_d}" if head_d else shaft_d
+    return (
+        f"<svg class='delta-arrow-svg' width='{ARROW_SVG_WIDTH:.0f}' height='{total_h:.1f}' "
+        f"viewBox='0 0 {ARROW_SVG_WIDTH:.0f} {total_h:.1f}' "
+        f"title='changed by {delta:+.3f} last update'>"
+        f"<path d='{path_d}' stroke='{color}' stroke-width='{ARROW_SHAFT_WIDTH:.1f}' "
+        f"stroke-linecap='round' fill='none'/></svg>"
+    )
 
 
 def _weight_badge_html(layer, idx):
@@ -152,13 +175,25 @@ def render_weight_badges():
             badge.innerHTML = _weight_badge_html(layer, idx)
 
 
-def render_output_readout():
-    if output_readout_el is None:
+def render_loss_readout():
+    if loss_readout_el is None:
         return
     if state.forward_cache is not None:
-        output_readout_el.textContent = f"L = {fmt(state.forward_cache['mean_loss'])}"
+        loss_readout_el.textContent = fmt(state.forward_cache["mean_loss"])
     else:
-        output_readout_el.textContent = "L = –"
+        loss_readout_el.textContent = "–"
+
+
+LOSS_PULSE_DURATION = 0.5
+
+
+async def pulse_loss():
+    box = state.get_id("loss-node-box")
+    if box is None:
+        return
+    box.classList.add("loss-pulse")
+    await asyncio.sleep(LOSS_PULSE_DURATION)
+    box.classList.remove("loss-pulse")
 
 
 def set_box_active(box_id, active):
@@ -171,6 +206,7 @@ def set_box_active(box_id, active):
 
 
 def clear_all_highlights():
+    set_box_active("output-node-box", False)
     for layer in state.layers:
         set_box_active(f"neuron-box-{layer['id']}", False)
         set_box_active(f"weight-badge-{layer['id']}", False)
@@ -185,6 +221,16 @@ def clear_all_highlights():
 # alternate above/below the diagram so labels have room to breathe instead
 # of stacking up on one side. Markers accumulate across an epoch's reveal
 # and are cleared together at the next forward pass.
+#
+# The walk starts at the new Loss node (dL/dŷ, the boundary hop), then for
+# each layer visits its ACTIVATION box before its LINEAR/weight box:
+#     dL/da_i = dL/dn_{i+1} * dn_{i+1}/da_i   -- arriving at the activation node
+#     dL/dn_i = dL/da_i * da_i/dn_i           -- arriving at the linear node
+#     dL/dw_i = dL/dn_i * dn_i/dw_i           -- shown alongside dL/dn_i
+# Note da_i/dn_i (this activation's own local slope) is revealed at the
+# LINEAR node's arrival, not the activation node's -- it's the factor that
+# turns the just-arrived dL/da_i into dL/dn_i, so it belongs to the hop
+# that consumes dL/da_i, one box further back.
 
 def marker_endpoints(plan_idx, is_activation):
     """(source_box_id, target_box_id) for a given plan index/stage,
@@ -245,7 +291,12 @@ def _svg_path(d, stroke_width=2.0):
 def redraw_grad_markers():
     """Recomputes every marker's arrow + label from the LIVE positions of
     its source/target boxes. Safe to call any time (resize, new marker) --
-    it's a full clear-and-redraw, not an incremental patch."""
+    it's a full clear-and-redraw, not an incremental patch. Callers are
+    responsible for having already applied any DOM change that would
+    resize a box (e.g. re-rendering a weight badge's text) BEFORE calling
+    this, so the measured position is the box's FINAL one -- measuring
+    first and mutating content after is what causes a label to visibly
+    jump right after it appears."""
     if grad_arrow_svg_el is None or grad_label_layer_el is None or diagram_canvas_el is None:
         return
     grad_arrow_svg_el.innerHTML = ""
@@ -289,18 +340,31 @@ def redraw_grad_markers():
         grad_label_layer_el.appendChild(label)
 
 
-def render_activation_reveal(entry):
-    """Reveals the activation node's half of the chain rule:
-    dL/dz_i = dL/da_i * da_i/dz_i. Purely visual -- never mutates a
-    weight."""
-    pos = entry["layer_pos"]
-    formula = f"dL/dz<sub>{pos}</sub> = dL/da<sub>{pos}</sub> · da<sub>{pos}</sub>/dz<sub>{pos}</sub>"
-    nums = (f"= {fmt(entry['avg_grad_out'])} · {fmt(entry['avg_act_deriv'])} "
-            f"≈ {fmt(entry['avg_delta'])}")
-    html = (f"<div class='grad-label-formula'>{formula}</div>"
-            f"<div class='grad-label-nums'>{nums}</div>")
+def render_boundary_reveal():
+    """The very first backward reveal each epoch: the loss's own gradient
+    arriving at ŷ. Not a chain-rule product -- there's nothing further
+    upstream than the loss -- so it's shown as the direct derivative of
+    the loss formula instead of a formula with two factors."""
+    html = "<div class='grad-label-formula'>dL/dŷ = 2(ŷ − y)</div>"
+    add_grad_marker("loss-node-box", "output-node-box", html)
+    clear_all_highlights()
+    set_box_active("output-node-box", True)
 
-    plan_idx = next(i for i, p in enumerate(state.plan) if p["layer_id"] == entry["layer_id"])
+
+def render_activation_reveal(entry, plan_idx):
+    """Reveals the activation node's half of the chain rule:
+    dL/da_i = dL/dn_{i+1} * dn_{i+1}/da_i (or dL/dŷ * dŷ/da_i for the last
+    layer, since ŷ IS a_L with no transform in between). Purely visual --
+    never mutates a weight."""
+    pos = entry["layer_pos"]
+    if plan_idx == 0:
+        formula = f"dL/da<sub>{pos}</sub> = dL/dŷ · dŷ/da<sub>{pos}</sub>"
+    else:
+        prev_pos = state.plan[plan_idx - 1]["layer_pos"]
+        formula = (f"dL/da<sub>{pos}</sub> = dL/dn<sub>{prev_pos}</sub> · "
+                   f"dn<sub>{prev_pos}</sub>/da<sub>{pos}</sub>")
+    html = f"<div class='grad-label-formula'>{formula}</div>"
+
     source_id, target_id = marker_endpoints(plan_idx, is_activation=True)
     add_grad_marker(source_id, target_id, html)
 
@@ -308,30 +372,33 @@ def render_activation_reveal(entry):
     set_box_active(target_id, True)
 
 
-def render_linear_reveal(entry):
+def render_linear_reveal(entry, plan_idx):
     """Reveals the linear/weight node's half of the chain rule:
-    dL/dw_i = dL/dz_i * dz_i/dw_i, and pulses the weight badge -- call
-    AFTER the caller has already applied the weight update to state.layers
-    (this function only ever renders, it never mutates)."""
+    dL/dn_i = dL/da_i * da_i/dn_i, and dL/dw_i = dL/dn_i * dn_i/dw_i (the
+    weight update itself) -- then pulses the weight badge. Call AFTER the
+    caller has already applied the weight update to state.layers (this
+    function only ever renders, it never mutates)."""
     pos = entry["layer_pos"]
-    formula = f"dL/dw<sub>{pos}</sub> = dL/dz<sub>{pos}</sub> · dz<sub>{pos}</sub>/dw<sub>{pos}</sub>"
-    nums = (f"= {fmt(entry['avg_delta'])} · {fmt(entry['avg_source'])} "
-            f"≈ {fmt(entry['grad_w'])}")
+    n_formula = f"dL/dn<sub>{pos}</sub> = dL/da<sub>{pos}</sub> · da<sub>{pos}</sub>/dn<sub>{pos}</sub>"
+    w_formula = f"dL/dw<sub>{pos}</sub> = dL/dn<sub>{pos}</sub> · dn<sub>{pos}</sub>/dw<sub>{pos}</sub>"
     bias_line = ""
     if state.biases_enabled:
         bias_line = (
-            f"<div class='grad-label-formula'>dL/db<sub>{pos}</sub> = dL/dz<sub>{pos}</sub> "
-            f"· dz<sub>{pos}</sub>/db<sub>{pos}</sub></div>"
-            f"<div class='grad-label-nums'>≈ {fmt(entry['grad_b'])}</div>"
+            f"<div class='grad-label-formula'>dL/db<sub>{pos}</sub> = dL/dn<sub>{pos}</sub> "
+            f"· dn<sub>{pos}</sub>/db<sub>{pos}</sub></div>"
         )
-    html = (f"<div class='grad-label-formula'>{formula}</div>"
-            f"<div class='grad-label-nums'>{nums}</div>{bias_line}")
+    html = (f"<div class='grad-label-formula'>{n_formula}</div>"
+            f"<div class='grad-label-formula'>{w_formula}</div>{bias_line}")
 
-    plan_idx = next(i for i, p in enumerate(state.plan) if p["layer_id"] == entry["layer_id"])
+    # Update the badge's content BEFORE measuring/drawing -- if the badge's
+    # size changes (a new digit, a delta-arrow appearing for the first
+    # time) after the arrow/label were already positioned, the anchor
+    # point moves out from under them and the label visibly jumps.
+    render_weight_badges()
+
     source_id, target_id = marker_endpoints(plan_idx, is_activation=False)
     add_grad_marker(source_id, target_id, html)
 
-    render_weight_badges()
     clear_all_highlights()
     set_box_active(target_id, True)
     asyncio.ensure_future(pulse_weight(entry["layer_id"]))

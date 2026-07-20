@@ -2,18 +2,24 @@
 "reveal plan" that the step machine walks through one layer at a time.
 
 The network is a strict chain of single-neuron layers: a0 = x (the raw
-input), and for layer i (1-indexed): z_i = w_i * a_{i-1} + b_i,
-a_i = act_i(z_i). The final layer's activation is the prediction.
+input), and for layer i (1-indexed): n_i = w_i * a_{i-1} + b_i,
+a_i = act_i(n_i). The final layer's activation is the prediction (shown
+in the diagram as ŷ, with the loss L computed from ŷ in its own node).
 
-Chain rule convention used throughout (and shown in the UI), split into the
-two stages the step machine reveals separately -- first the activation
-node, then the linear/weight node:
-    dL/dz_i = dL/da_i * da_i/dz_i     (revealed at the activation node)
-    dL/dw_i = dL/dz_i * dz_i/dw_i     (revealed at the linear/weight node)
-where dL/da_i ("grad_out") is the gradient flowing in from the layer
-immediately ahead of it (i+1, or the loss itself if i is the last layer),
-da_i/dz_i ("act_deriv") is the activation function's own local slope, and
-dz_i/dw_i is simply the value that fed this layer (a_{i-1}).
+Chain rule convention used throughout (and shown in the UI), walked
+backward one BOX at a time -- an activation node then a linear/weight
+node, per layer, plus one boundary hop from the loss into ŷ:
+    dL/dŷ = 2(ŷ - y)                  (the boundary hop, from L into ŷ)
+    dL/da_i = dL/dn_{i+1} * dn_{i+1}/da_i   (revealed at the activation node;
+                                              dL/dŷ * dŷ/da_i for the last layer,
+                                              since ŷ IS a_L with no transform)
+    dL/dn_i = dL/da_i * da_i/dn_i      (revealed at the linear/weight node)
+    dL/dw_i = dL/dn_i * dn_i/dw_i      (shown alongside dL/dn_i, same node)
+Note this is the OPPOSITE pairing from a naive reading of the diagram: the
+activation node's own local slope (da_i/dn_i) is revealed when the arrow
+ARRIVES at the linear node, not when it arrives at the activation node --
+because da_i/dn_i measures how THIS activation box turns n_i into a_i, and
+a_i is only fully known once the arrow has already passed through it.
 """
 import random
 
@@ -91,14 +97,15 @@ def reset_training():
 
 def forward_point(x: float) -> tuple[list[float], list[float]]:
     """Returns (pre, post) each length len(layers)+1, index 0 = the raw
-    input (pre[0] is unused/None-ish, post[0] = x)."""
+    input (pre[0] is unused/None-ish, post[0] = x). pre[i] is n_i (the
+    pre-activation sum), post[i] is a_i."""
     pre = [0.0]
     post = [x]
     a_prev = x
     for l in state.layers:
-        z = l["w"] * a_prev + l["b"]
-        a = apply_activation(z, l["act"])
-        pre.append(z)
+        n = l["w"] * a_prev + l["b"]
+        a = apply_activation(n, l["act"])
+        pre.append(n)
         post.append(a)
         a_prev = a
     return pre, post
@@ -134,13 +141,10 @@ def build_backward_plan() -> list[dict]:
     FIRST -- the order the step machine reveals them in (each layer is
     then shown in two sub-steps: activation, then linear/weight).
 
-    Each entry carries both the exact batch gradients (grad_w/grad_b, used
-    to actually update the weight/bias) and the pedagogical per-stage
-    averages (avg_grad_out, avg_act_deriv, avg_delta, avg_source) whose
-    products approximate them -- exact whenever the dataset has a single
-    point, a close approximation otherwise, and always shown alongside the
-    formula they illustrate rather than as the number actually used to
-    step."""
+    The UI only ever shows the SYMBOLIC chain-rule formula, never a
+    plugged-in number, so this only needs to carry what the actual
+    weight/bias update requires -- not any of the intermediate averages
+    that used to exist purely to populate a "= a * b ≈ c" numeric line."""
     points = state.forward_cache["points"]
     n = len(points)
     L = len(state.layers)
@@ -159,10 +163,6 @@ def build_backward_plan() -> list[dict]:
 
         grad_w_sum = 0.0
         grad_b_sum = 0.0
-        grad_out_sum = 0.0
-        act_deriv_sum = 0.0
-        delta_sum = 0.0
-        source_sum = 0.0
         next_grad_out_per_point = [0.0] * n
 
         for k, pt in enumerate(points):
@@ -172,23 +172,14 @@ def build_backward_plan() -> list[dict]:
             act_deriv = apply_activation_derivative(pre_i, post_i, act)
             grad_out = grad_out_per_point[k]
 
-            delta = grad_out * act_deriv
+            delta = grad_out * act_deriv       # dL/dn_i for this point
             grad_w_sum += delta * source
             grad_b_sum += delta
-
-            grad_out_sum += grad_out
-            act_deriv_sum += act_deriv
-            delta_sum += delta
-            source_sum += source
 
             next_grad_out_per_point[k] = delta * layer["w"]
 
         grad_w = _clip_grad(grad_w_sum / n)
         grad_b = _clip_grad(grad_b_sum / n)
-        avg_grad_out = grad_out_sum / n
-        avg_act_deriv = act_deriv_sum / n
-        avg_delta = delta_sum / n
-        avg_source = source_sum / n
 
         w_old, b_old = layer["w"], layer["b"]
         w_new = w_old - state.lr * grad_w
@@ -198,13 +189,8 @@ def build_backward_plan() -> list[dict]:
             "layer_id": layer["id"],
             "layer_pos": i,          # 1-indexed position in the chain
             "is_last": i == L,
-            "act": act,
             "grad_w": grad_w,
             "grad_b": grad_b,
-            "avg_grad_out": avg_grad_out,     # dL/da_i
-            "avg_act_deriv": avg_act_deriv,   # da_i/dz_i
-            "avg_delta": avg_delta,           # dL/dz_i (exact mean, not a product-of-means approx)
-            "avg_source": avg_source,         # dz_i/dw_i (the value that fed this layer)
             "w_old": w_old, "w_new": w_new,
             "b_old": b_old, "b_new": b_new,
         })

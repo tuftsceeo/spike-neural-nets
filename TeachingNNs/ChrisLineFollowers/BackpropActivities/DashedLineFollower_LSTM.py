@@ -47,21 +47,25 @@ class ScalarLSTMCell:
 
     def __init__(self, lr=0.1):
         scale = 0.5
-        self.w_fx, self.w_fh, self.b_f = np.random.randn(3) * scale
+        # f is forget gate, x means it is the x (input) coefficient, w or b is weight or bias
+        # i is input gate (stuff to add to longterm memory, potential longterm memory)
+        # g is what to multiply input by (% potential longterm memory)
+        # o is ouput (percent to add to small)
+        self.w_fx, self.w_fh, self.b_f = np.random.randn(3) * scale 
         self.w_ix, self.w_ih, self.b_i = np.random.randn(3) * scale
         self.w_gx, self.w_gh, self.b_g = np.random.randn(3) * scale
         self.w_ox, self.w_oh, self.b_o = np.random.randn(3) * scale
         self.w_y, self.b_y = np.random.randn(2) * scale  # linear readout: y_t = w_y*h_t + b_y
         self.lr = lr
 
-    def forward_step(self, x_t, h_prev, c_prev):
+    def forward_step(self, x_t, h_prev, c_prev): # h_prev is the previous short term and c is long term
         f_t = sigmoid(self.w_fx * x_t + self.w_fh * h_prev + self.b_f)   # forget gate
         i_t = sigmoid(self.w_ix * x_t + self.w_ih * h_prev + self.b_i)   # input gate
         g_t = np.tanh(self.w_gx * x_t + self.w_gh * h_prev + self.b_g)  # candidate
         o_t = sigmoid(self.w_ox * x_t + self.w_oh * h_prev + self.b_o)  # output gate
 
         c_t = f_t * c_prev + i_t * g_t
-        h_t = o_t * np.tanh(c_t)
+        h_t = o_t * np.tanh(c_t) # tanh is memory and o is percent of that to add to short term
         y_t = self.w_y * h_t + self.b_y
 
         cache = dict(x_t=x_t, h_prev=h_prev, c_prev=c_prev,

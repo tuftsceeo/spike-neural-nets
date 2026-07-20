@@ -44,9 +44,11 @@
                     <div class="node-card input-node">x</div>
                     <div class="layers-track" id="layers-track"><!-- built by diagram_render.py --></div>
                     <div class="flow-arrow">→</div>
-                    <div class="node-card output-node" id="output-node-box">
-                        ŷ
-                        <div class="output-readout" id="output-readout">L = –</div>
+                    <div class="node-card output-node" id="output-node-box">ŷ</div>
+                    <div class="flow-arrow">→</div>
+                    <div class="node-card loss-node" id="loss-node-box">
+                        L
+                        <div class="loss-readout" id="loss-readout">–</div>
                     </div>
                 </div>
                 <button id="add-layer-btn" class="btn-add-layer" title="Add a layer (one neuron + its own activation function)">
@@ -125,6 +127,10 @@
             <div class="act-help-item">
                 <span class="act-help-name">ReLU</span>
                 <span class="act-help-desc">Sets negative values to zero. Fast and widely used in deep learning.</span>
+            </div>
+            <div class="act-help-item">
+                <span class="act-help-name">Leaky ReLU</span>
+                <span class="act-help-desc">Like ReLU, but negative values get a small slope (×0.01) instead of a hard zero -- keeps a little gradient flowing even when the input is negative.</span>
             </div>
             <div class="act-help-item">
                 <span class="act-help-name">Sigmoid</span>
