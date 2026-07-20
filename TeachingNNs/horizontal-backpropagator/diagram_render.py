@@ -122,7 +122,7 @@ def _source_symbol(idx):
 
 
 ARROW_SHAFT_WIDTH = 3.0
-ARROW_HEAD_SIZE = 4.5
+ARROW_HEAD_SIZE = 2.5
 ARROW_SVG_WIDTH = 12.0
 
 
@@ -263,7 +263,7 @@ def clear_grad_markers():
     redraw_grad_markers()
 
 
-def _arrowhead_path_d(x2, y2, dx, dy, size=3.0):
+def _arrowhead_path_d(x2, y2, dx, dy, size=8.0):
     mag = math.hypot(dx, dy)
     if mag < 1e-6:
         return None
