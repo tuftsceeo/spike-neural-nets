@@ -10,6 +10,7 @@ from pyscript.ffi import create_proxy
 
 import state
 import network_model
+import ui_refresh
 
 layers_track_el = state.get_id("layers-track")
 loss_readout_el = state.get_id("loss-readout")
@@ -104,14 +105,12 @@ def build_diagram():
 
 def on_activation_change(lid, value):
     network_model.set_layer_activation(lid, value)
-    import main
-    main.on_topology_changed()
+    ui_refresh.on_topology_changed()
 
 
 def on_remove_layer(lid):
     network_model.remove_layer(lid)
-    import main
-    main.on_topology_changed()
+    ui_refresh.on_topology_changed()
 
 
 # ── Live value rendering ──────────────────────────────────────────────────

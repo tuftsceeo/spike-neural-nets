@@ -9,6 +9,7 @@ import diagram_render
 import dataset_ui
 import plots
 import training
+import ui_refresh
 
 add_layer_btn = state.get_id("add-layer-btn")
 randomize_weights_btn = state.get_id("randomize-weights-btn")
@@ -24,58 +25,27 @@ reset_btn = state.get_id("reset-btn")
 close_act_help_btn = state.get_id("close-act-help-btn")
 
 
-def _ready() -> bool:
-    return bool(state.dataset) and bool(state.layers)
-
-
-def refresh_plots_and_controls():
-    plots.update_fit_data()
-    plots.update_fit_curve()
-    plots.update_loss_plot()
-    training.enable_training_controls(_ready())
-    network_model.take_snapshot()
-    training.update_back_button_states()
-
-
-def on_topology_changed():
-    diagram_render.build_diagram()
-    refresh_plots_and_controls()
-
-
-def on_weight_change():
-    diagram_render.render_weight_badges()
-    diagram_render.clear_grad_markers()
-    diagram_render.render_loss_readout()
-    refresh_plots_and_controls()
-
-
-def on_dataset_changed():
-    diagram_render.clear_grad_markers()
-    diagram_render.render_loss_readout()
-    refresh_plots_and_controls()
-
-
 # ── Top-panel controls ─────────────────────────────────────────────────────
 
 def on_add_layer_click(evt=None):
     if state.playing:
         training.stop_playing()
     network_model.add_layer()
-    on_topology_changed()
+    ui_refresh.on_topology_changed()
 
 
 def on_randomize_weights_click(evt=None):
     if state.playing:
         training.stop_playing()
     network_model.randomize_weights()
-    on_weight_change()
+    ui_refresh.on_weight_change()
 
 
 def on_biases_toggle_change(evt=None):
     if state.playing:
         training.stop_playing()
     network_model.set_biases_enabled(bool(evt.target.checked))
-    on_topology_changed()
+    ui_refresh.on_topology_changed()
 
 
 def on_lr_input_change(evt=None):
@@ -92,7 +62,7 @@ def on_reset_click(evt=None):
     if state.playing:
         training.stop_playing()
     network_model.randomize_weights()
-    on_weight_change()
+    ui_refresh.on_weight_change()
 
 
 # ── Boot ────────────────────────────────────────────────────────────────────
@@ -142,7 +112,7 @@ def boot():
     plots.init_fit_plot()
     plots.init_loss_plot()
 
-    training.enable_training_controls(_ready())
+    training.enable_training_controls(ui_refresh.ready())
     network_model.take_snapshot()
     training.update_back_button_states()
 

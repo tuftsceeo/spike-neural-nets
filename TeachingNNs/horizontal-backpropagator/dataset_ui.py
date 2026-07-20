@@ -6,6 +6,7 @@ from pyscript.ffi import create_proxy
 
 import state
 import network_model
+import ui_refresh
 
 rows_el = state.get_id("dataset-rows")
 add_row_el = state.get_id("dataset-add-row")
@@ -54,15 +55,13 @@ def _on_edit(pid, field, raw_value):
         return
     p[field] = value
     network_model.reset_training()
-    import main
-    main.on_dataset_changed()
+    ui_refresh.on_dataset_changed()
 
 
 def _on_remove(pid):
     network_model.remove_data_point(pid)
     render_table()
-    import main
-    main.on_dataset_changed()
+    ui_refresh.on_dataset_changed()
 
 
 def render_add_row():
@@ -105,5 +104,4 @@ def on_add_point_click(evt=None):
     render_table()
     x_el.value = ""
     y_el.value = ""
-    import main
-    main.on_dataset_changed()
+    ui_refresh.on_dataset_changed()
