@@ -1,0 +1,25 @@
+name = "network-trainer"
+packages = [ "legoeducation","numpy"]
+
+[files]
+"./glue/state.py" = ""
+"./network/activations.py" = ""
+"./Device.py" = ""
+"./misc_ui/templates.py" = ""
+"./misc_ui/arrows.py" = ""
+"./network/network_model.py" = ""
+"./glue/sync.py" = ""
+"./glue/bindings.py" = ""
+"./misc_ui/dataset_ui.py" = ""
+"./network/activation_editor.py" = ""
+"./network/network_actions.py" = ""
+"./misc_ui/ui_chrome.py" = ""
+"./plots/plot_utils.py" = ""
+"./plots/live_plot.py" = ""
+"./plots/fit_plot.py" = ""
+"./plots/loss_plot.py" = ""
+"./plots/scatter_plot.py" = ""
+
+[js_modules.main]
+"./JS/ble.js" = "ble"
+"./JS/plotly.js" = "Plotly"

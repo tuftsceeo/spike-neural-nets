@@ -112,11 +112,13 @@ class ScalarLSTMCell:
         dc_next = 0.0   # dL/dc_{t+1}, arriving from the future
         total_loss = 0.0
 
-        for t in reversed(range(T)):
-            cache = caches[t]
+        for t in reversed(range(T)): # BPTT (going backwards through time to backpropagate)
+            # save current time stamp vars
+            cache = caches[t] 
             target_L, target_R = targets[t]
 
             # ---- readout layer (two independent heads) ----
+            # calculate loss/derivative for all vars in readout layer
             loss = 0.5 * (cache['y_L'] - target_L) ** 2 + 0.5 * (cache['y_R'] - target_R) ** 2
             total_loss += loss
             dyL = cache['y_L'] - target_L            # dL/dy_L
@@ -161,7 +163,7 @@ class ScalarLSTMCell:
     def update(self, grads, clip=50.0):
         # Long sequences (like a ~450-step real run) accumulate gradient across
         # every timestep, so a clip is needed to keep a single bad step from
-        # blowing up the whole update -- the toy 5-step demo didn't need this.
+        # blowing up the whole update.
         # Clip by the GLOBAL norm of the whole gradient vector, not per-parameter:
         # the readout gradients (fitting raw motor speeds) run 10-1000x larger
         # than the gate gradients, so an independent per-parameter clip would
