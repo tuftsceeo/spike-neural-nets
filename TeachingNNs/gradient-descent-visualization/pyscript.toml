@@ -1,4 +1,12 @@
-[[fetch]]
-files = ["./main.py"]
-
 packages = ["plotly"]
+
+name = "Gradient Descent Visualization"
+
+[files]
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/main.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/state.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/flowchart.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/dom.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/math_core.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/plots.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/app.py" = ""
