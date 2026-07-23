@@ -377,9 +377,8 @@ def get_out_channels_html(device: Element | None = None) -> str:
 
 # ── Device connect/disconnect management ─────────────────────────────────────
 
-async def add_device_chip(dev: Element):
-    dl  = state.get_id("device-list")
-    btn = state.get_id("add-device-btn")
+async def add_device_chip(dev: "Element"):
+    dl = document.getElementById("device-list")
 
     name = dev.name
     chip = document.createElement("div")
@@ -400,17 +399,17 @@ async def add_device_chip(dev: Element):
 
     async def make_disc(dev):
         async def handler(evt):
-            chip_el = state.get_id(f"chip-{dev.myble.device.name}")
+            import sync
+            chip_el = document.getElementById(f"chip-{dev.myble.device.name}")
             if chip_el:
                 chip_el.remove()
             await dev.disconnect()
             state.devices.remove(dev)
-            import sync
             sync.refresh_device_dropdowns()
         return create_proxy(handler)
 
     disc.addEventListener("click", await make_disc(dev))
-    dl.insertBefore(chip, btn)
+    dl.appendChild(chip)
     import sync
     sync.refresh_device_dropdowns()
 
