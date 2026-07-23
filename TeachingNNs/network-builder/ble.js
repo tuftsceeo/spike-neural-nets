@@ -8,7 +8,7 @@ export class BLEDevice {
         this.callback = null;
         this.disconnectCallback = null;
     }
-    
+
     async scan() {
         const SERVICE_UUID = '0000fd02-0000-1000-8000-00805f9b34fb';
         this.device = await navigator.bluetooth.requestDevice({
