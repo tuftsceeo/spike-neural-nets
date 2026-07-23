@@ -115,14 +115,22 @@ def run_epoch_turbo():
 
 
 def _replay_revealed_substeps():
-    """Rebuilds every arrow/label/highlight up through the CURRENT
-    step_index -- used after restoring a snapshot, since the snapshot only
-    carries raw state, not the visual markers."""
+    """Rebuilds every arrow/label/highlight for substeps ALREADY revealed as
+    of the restored state -- used after restoring a snapshot, since the
+    snapshot only carries raw state, not the visual markers.
+
+    state.step_index holds the NEXT substep still to be revealed (or 0 once
+    every substep in the epoch has been revealed), so the last substep
+    actually revealed is step_index - 1 -- or _total_substeps() when
+    step_index is 0. Replaying through step_index itself (rather than
+    step_index - 1) would redraw the very substep that going back just
+    undid."""
     diagram_render.clear_grad_markers()
     diagram_render.clear_all_highlights()
-    if not state.plan or state.step_index < 1:
+    if not state.plan:
         return
-    for s in range(1, state.step_index + 1):
+    last_revealed = _total_substeps() if state.step_index == 0 else state.step_index - 1
+    for s in range(1, last_revealed + 1):
         _reveal_substep_readonly(s)
 
 
