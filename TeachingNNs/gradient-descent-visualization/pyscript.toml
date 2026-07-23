@@ -3,10 +3,10 @@ packages = ["plotly"]
 name = "Gradient Descent Visualization"
 
 [files]
-"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/main.py" = ""
-"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/state.py" = ""
-"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/flowchart.py" = ""
-"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/dom.py" = ""
-"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/math_core.py" = ""
-"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/plots.py" = ""
-"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualizer/app.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualization/main.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualization/state.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualization/flowchart.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualization/dom.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualization/math_core.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualization/plots.py" = ""
+"https://raw.githubusercontent.com/tuftsceeo/spike-neural-nets/refs/heads/main/TeachingNNs/gradient-descent-visualization/app.py" = ""

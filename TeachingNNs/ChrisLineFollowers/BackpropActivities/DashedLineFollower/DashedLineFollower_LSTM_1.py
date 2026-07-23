@@ -194,8 +194,8 @@ class ScalarLSTMCell:
 if __name__ == "__main__":
     m = le.DoubleMotor()
     c = le.ColorSensor()
-    m.connect(card_serial="6081")
-    c.connect(card_serial="6081")
+    m.connect(card_serial="6235")
+    c.connect(card_serial="6235")
     # Real recorded run, over a SOLID line -- no gaps in the raw data.
     data_path = os.path.join(os.path.dirname(__file__), "line_run_1")
     raw_sensor, motor_left, motor_right = load_run(data_path)
