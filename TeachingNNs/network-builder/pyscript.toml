@@ -4,6 +4,16 @@ packages = [ "legoeducation","numpy"]
 [files]
 "./Device.py" = ""
 "./plot.py" = ""
+"./state.py" = ""
+"./activations.py" = ""
+"./network_model.py" = ""
+"./templates.py" = ""
+"./arrows.py" = ""
+"./sync.py" = ""
+"./bindings.py" = ""
+"./activation_editor.py" = ""
+"./network_actions.py" = ""
+"./zoom.py" = ""
 
 [js_modules.main]
 "./ble.js" = "ble"
